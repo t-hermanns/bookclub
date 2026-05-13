@@ -13,7 +13,8 @@ services:
       # ÄNDERUNG HIER: Statt ./data nutzen wir ein Named Volume
       - bookclub_data:/app/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/state >/dev/null || exit 1"]
+      # Wir nutzen ein winziges Node-Skript statt wget. Das funktioniert immer und umgeht wget/localhost-Bugs.
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000/', (res) => res.statusCode === 200 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5
