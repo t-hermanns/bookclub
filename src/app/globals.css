@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { color-scheme: light dark; }
+
+body {
+  @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
+  background-image:
+    radial-gradient(1100px 600px at 100% -10%, rgba(124, 58, 237, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(236, 72, 153, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+.dark body {
+  @apply bg-slate-950 text-slate-100;
+  background-image:
+    radial-gradient(1100px 600px at 100% -10%, rgba(124, 58, 237, 0.20), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(236, 72, 153, 0.12), transparent 60%);
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-sm transition;
+  }
+  .dark .card {
+    @apply border-slate-800/80 bg-slate-900/70;
+  }
+  .card-hover {
+    @apply hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-50 active:translate-y-px;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-brand-700/20 hover:shadow-md hover:shadow-brand-700/30 focus:ring-brand-500;
+  }
+  .btn-secondary {
+    @apply btn bg-slate-200/80 text-slate-900 hover:bg-slate-200 focus:ring-slate-400;
+  }
+  .dark .btn-secondary {
+    @apply bg-slate-800/80 text-slate-100 hover:bg-slate-800;
+  }
+  .btn-danger {
+    @apply btn bg-gradient-to-br from-red-500 to-red-700 text-white hover:shadow-md focus:ring-red-500;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-slate-700 shadow-none hover:bg-slate-200/70 focus:ring-slate-400;
+  }
+  .dark .btn-ghost {
+    @apply text-slate-200 hover:bg-slate-800/60;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white/90 px-3 py-2 text-sm text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+  }
+  .dark .input {
+    @apply border-slate-700 bg-slate-800/70 text-slate-100 placeholder:text-slate-500;
+  }
+
+  .banner-info {
+    @apply rounded-xl border border-blue-200/80 bg-blue-50/90 p-3 text-sm text-blue-900 shadow-sm;
+  }
+  .dark .banner-info {
+    @apply border-blue-900 bg-blue-950/60 text-blue-100;
+  }
+  .banner-warn {
+    @apply rounded-xl border border-amber-300/80 bg-amber-50/90 p-3 text-sm text-amber-900 shadow-sm;
+  }
+  .dark .banner-warn {
+    @apply border-amber-900 bg-amber-950/60 text-amber-100;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .stage-dot {
+    @apply h-2.5 w-2.5 rounded-full;
+  }
+}
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: translateY(4px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0)  scale(1); }
+}
+.animate-pop { animation: pop-in 220ms ease-out both; }

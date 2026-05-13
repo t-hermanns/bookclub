@@ -1,0 +1,18 @@
+services:
+  bookclub:
+    build: .
+    image: bookclub:latest
+    container_name: bookclub
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - SESSION_SECRET=${SESSION_SECRET:-please-change-me}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/state >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,170 @@
+'use client';
+import { useCallback } from 'react';
+import { Header } from '@/components/Header';
+import { LoginScreen } from '@/components/LoginScreen';
+import { useAppState } from '@/components/useAppState';
+import { AdminBar } from '@/components/AdminBar';
+import { BooksList, ResultCard, SubmissionCard, VotingCard } from '@/components/StageCards';
+
+export default function Home() {
+  const { state, refresh } = useAppState();
+
+  const onLoggedIn = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
+  if (!state) {
+    return <div className="p-8 text-center text-slate-500">Lädt …</div>;
+  }
+
+  if (!state.user.name) {
+    return (
+      <>
+        <Header userName={null} isAdmin={false} />
+        <LoginScreen onLoggedIn={onLoggedIn} />
+      </>
+    );
+  }
+
+  const round = state.round;
+  const last = state.lastFinishedRound;
+  return (
+    <>
+      <Header userName={state.user.name} isAdmin={state.user.isAdmin} />
+      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:py-8">
+        <StatusBanner state={state} />
+
+        {!round && last && (
+          <>
+            <div className="card">
+              <div className="text-sm text-slate-500">Letzte abgeschlossene Runde</div>
+              <ResultCardInline winner={last.winner} />
+            </div>
+            <BooksListInline books={last.books} winnerId={last.winner?.id ?? null} />
+          </>
+        )}
+
+        {!round && !last && !state.user.isAdmin && (
+          <div className="card">
+            Aktuell läuft keine Runde. Sobald der Admin eine startet, kannst du hier einreichen.
+          </div>
+        )}
+
+        {round?.status === 'suggestions_open' && (
+          <SubmissionCard state={round} refresh={refresh} />
+        )}
+
+        {round?.status === 'suggestions_closed' && (
+          <>
+            <BooksList state={round} showVotes={false} />
+            <SubmissionCard state={round} refresh={refresh} />
+          </>
+        )}
+
+        {(round?.status === 'voting_open' || round?.status === 'runoff_open') && (
+          <VotingCard state={round} userName={state.user.name} refresh={refresh} />
+        )}
+
+        {round?.status === 'voting_closed' && (
+          <>
+            <ResultCard state={round} />
+            <BooksList state={round} showVotes />
+          </>
+        )}
+
+        <AdminBar state={state} refresh={refresh} />
+      </main>
+    </>
+  );
+}
+
+function ResultCardInline({ winner }: { winner: { title: string; author: string; link: string; submitter?: string; votes?: number } | null }) {
+  if (!winner) return null;
+  return (
+    <div className="space-y-1">
+      <h2 className="text-lg font-semibold">🏆 Gewinner</h2>
+      <div className="text-xl font-bold">{winner.title}</div>
+      <div className="text-slate-500">von {winner.author}</div>
+      <a className="text-brand-600 hover:underline" href={winner.link} target="_blank" rel="noreferrer">
+        {winner.link}
+      </a>
+      {winner.submitter && (
+        <div className="text-sm text-slate-500">Vorgeschlagen von {winner.submitter}</div>
+      )}
+    </div>
+  );
+}
+
+function BooksListInline({
+  books,
+  winnerId
+}: {
+  books: { id: number; title: string; author: string; link: string; submitter?: string; votes?: number }[];
+  winnerId: number | null;
+}) {
+  if (books.length === 0) return null;
+  return (
+    <div className="card space-y-2">
+      <h2 className="text-lg font-semibold">Alle Vorschläge der Runde</h2>
+      <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+        {books.map((b) => (
+          <li key={b.id} className="flex items-start justify-between gap-3 py-2">
+            <div>
+              <div className="font-medium">
+                {b.title} {b.id === winnerId && <span className="text-brand-600">🏆</span>}
+              </div>
+              <div className="text-sm text-slate-500">
+                von {b.author}
+                {b.submitter && <> · vorgeschlagen von {b.submitter}</>}
+              </div>
+              <a className="text-sm text-brand-600 hover:underline" href={b.link} target="_blank" rel="noreferrer">
+                {b.link}
+              </a>
+            </div>
+            {typeof b.votes === 'number' && (
+              <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">
+                {b.votes}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'] }) {
+  if (!state || !state.round) return null;
+  const r = state.round;
+  const labels: Record<string, string> = {
+    suggestions_open: 'Buchvorschläge laufen',
+    suggestions_closed: 'Vorschläge abgeschlossen — warte auf Abstimmung',
+    voting_open: 'Abstimmung läuft',
+    runoff_open: 'Stichwahl läuft',
+    voting_closed: 'Abstimmung beendet',
+    tied_random_pending: 'Gleichstand — Entscheidung steht aus',
+    finished: 'Runde beendet'
+  };
+  const dot: Record<string, string> = {
+    suggestions_open: 'bg-blue-500',
+    suggestions_closed: 'bg-indigo-500',
+    voting_open: 'bg-emerald-500',
+    runoff_open: 'bg-amber-500',
+    voting_closed: 'bg-slate-500',
+    tied_random_pending: 'bg-amber-500',
+    finished: 'bg-emerald-600'
+  };
+  return (
+    <div className="card animate-pop flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <span className={`stage-dot ${dot[r.status] ?? 'bg-slate-400'} shadow-[0_0_0_4px_rgba(0,0,0,0.04)]`} />
+        {labels[r.status] ?? r.status}
+      </div>
+      {r.isRunoff && (
+        <span className="pill bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+          Stichwahl
+        </span>
+      )}
+    </div>
+  );
+}

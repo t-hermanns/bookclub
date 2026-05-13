@@ -1,0 +1,36 @@
+import { NextRequest } from 'next/server';
+import { err, ok, requireAdmin } from '@/lib/api';
+import {
+  applyAutoTransitions,
+  closeVoting,
+  countVoters,
+  eligibleVoterCount,
+  getActiveRound
+} from '@/lib/round';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
+  const u = requireAdmin();
+  if (u instanceof Response) return u;
+  let round = getActiveRound();
+  round = applyAutoTransitions(round);
+  if (!round) return err('Keine Abstimmung aktiv');
+  if (round.status !== 'voting_open' && round.status !== 'runoff_open')
+    return err('Abstimmung ist nicht offen');
+  if (round.voting_deadline && new Date(round.voting_deadline).getTime() > Date.now()) {
+    return err('Frist ist noch nicht abgelaufen', 409);
+  }
+  const body = await req.json().catch(() => ({}));
+  const force = !!(body as any).force;
+  const eligible = eligibleVoterCount(round);
+  const voted = countVoters(round.id);
+  if (voted < eligible && !force) {
+    return err(
+      `Nur ${voted}/${eligible} haben abgestimmt. Bitte mit force=true bestätigen.`,
+      409
+    );
+  }
+  closeVoting(round.id);
+  return ok({ ok: true });
+}
