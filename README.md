@@ -46,7 +46,7 @@ Die SQLite-Datei liegt persistent in `./data/`.
 
 ## Funktionsumfang
 
-- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie + localStorage). Der Admin bestätigt zusätzlich mit Passwort. Über "Wechseln" jederzeit Person ändern.
+- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie + localStorage). Der Admin bestätigt zusätzlich mit Passwort.
 - **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Live-Zähler X/11.
 - **Vorschläge schließen**: automatisch wenn 11/11 vorliegen, sonst manuell durch den Admin (Warn-Dialog wenn unvollständig).
 - **Phase "Vorschläge geschlossen"**: alle sehen die Bücher anonym. Eigene Vorschläge bleiben editierbar. Der Admin sieht Hinweis-Banner.
