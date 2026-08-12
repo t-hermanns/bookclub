@@ -191,16 +191,14 @@ export function VotingCard({
           const selected = chosen === b.id;
           return (
             <li key={b.id}>
-              <button
-                disabled={busy || disallowOwn}
-                onClick={() => vote(b.id)}
-                className={`w-full rounded-xl border p-3 text-left transition shadow-sm hover:shadow-md ${
+              <div
+                className={`rounded-xl border p-3 transition ${
                   selected
                     ? 'border-brand-500 bg-gradient-to-br from-brand-50 to-brand-100 ring-2 ring-brand-400/40 dark:from-brand-700/30 dark:to-brand-700/10'
-                    : 'border-slate-200 bg-white/70 hover:border-brand-400 dark:border-slate-800 dark:bg-slate-900/50'
-                } ${disallowOwn ? 'cursor-not-allowed opacity-50' : ''}`}
+                    : 'border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/50'
+                } ${disallowOwn ? 'opacity-50' : ''}`}
               >
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0">
                     <div className="font-medium">{b.title}</div>
                     <div className="text-sm text-slate-500">von {b.author}</div>
@@ -209,7 +207,6 @@ export function VotingCard({
                       href={b.link}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
                     >
                       {b.link}
                     </a>
@@ -219,13 +216,22 @@ export function VotingCard({
                       </div>
                     )}
                   </div>
-                  {selected && (
-                    <span className="self-start rounded-full bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow">
-                      ✓ Deine Stimme
-                    </span>
-                  )}
+                  {!disallowOwn &&
+                    (selected ? (
+                      <span className="flex items-center justify-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow sm:shrink-0 sm:py-1.5">
+                        ✓ Deine Stimme
+                      </span>
+                    ) : (
+                      <button
+                        className="btn-primary justify-center sm:shrink-0"
+                        disabled={busy}
+                        onClick={() => vote(b.id)}
+                      >
+                        Abstimmen
+                      </button>
+                    ))}
                 </div>
-              </button>
+              </div>
             </li>
           );
         })}
