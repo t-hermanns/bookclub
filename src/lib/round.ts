@@ -100,6 +100,24 @@ export function countVoters(roundId: number): number {
   ).c;
 }
 
+/** Names of participants who have submitted a book in the given round. */
+export function listSubmitterNames(roundId: number): string[] {
+  return (
+    getDb()
+      .prepare('SELECT submitter_name FROM books WHERE round_id=? ORDER BY id')
+      .all(roundId) as { submitter_name: string }[]
+  ).map((r) => r.submitter_name);
+}
+
+/** Names of participants who have cast a vote in the given round. Does NOT reveal which book. */
+export function listVoterNames(roundId: number): string[] {
+  return (
+    getDb()
+      .prepare('SELECT voter_name FROM votes WHERE round_id=?')
+      .all(roundId) as { voter_name: string }[]
+  ).map((r) => r.voter_name);
+}
+
 export function tallyVotes(roundId: number): Map<number, number> {
   const rows = getDb()
     .prepare('SELECT book_id, COUNT(*) AS c FROM votes WHERE round_id=? GROUP BY book_id')

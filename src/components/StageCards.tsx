@@ -45,12 +45,6 @@ export function SubmissionCard({
       <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <h2 className="text-lg font-semibold">Dein Buchvorschlag</h2>
         <span className="text-sm text-slate-500">
-          {state.submittedCount !== null && (
-            <>
-              {state.submittedCount} / {state.eligibleVoterCount} eingereicht
-              {state.suggestionsDeadline && state.status === 'suggestions_open' && ' · '}
-            </>
-          )}
           {state.suggestionsDeadline && state.status === 'suggestions_open' && (
             <Countdown deadline={state.suggestionsDeadline} />
           )}
@@ -181,12 +175,6 @@ export function VotingCard({
       <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <h2 className="text-lg font-semibold">{isRunoff ? 'Stichwahl' : 'Abstimmung'}</h2>
         <span className="text-sm text-slate-500">
-          {state.voterCount !== null && (
-            <>
-              {state.voterCount} / {state.eligibleVoterCount} abgestimmt
-              {state.votingDeadline && ' · '}
-            </>
-          )}
           {state.votingDeadline && <Countdown deadline={state.votingDeadline} />}
         </span>
       </div>

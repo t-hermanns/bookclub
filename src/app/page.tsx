@@ -5,6 +5,7 @@ import { LoginScreen } from '@/components/LoginScreen';
 import { useAppState } from '@/components/useAppState';
 import { AdminBar } from '@/components/AdminBar';
 import { BooksList, ResultCard, SubmissionCard, VotingCard } from '@/components/StageCards';
+import { ParticipationRoster } from '@/components/ParticipationRoster';
 
 export default function Home() {
   const { state, refresh } = useAppState();
@@ -51,7 +52,10 @@ export default function Home() {
         )}
 
         {round?.status === 'suggestions_open' && (
-          <SubmissionCard state={round} refresh={refresh} />
+          <>
+            <SubmissionCard state={round} refresh={refresh} />
+            <ParticipationRoster doneNames={round.submittedNames} title="Wer hat eingereicht?" />
+          </>
         )}
 
         {round?.status === 'suggestions_closed' && (
@@ -62,7 +66,10 @@ export default function Home() {
         )}
 
         {(round?.status === 'voting_open' || round?.status === 'runoff_open') && (
-          <VotingCard state={round} userName={state.user.name} refresh={refresh} />
+          <>
+            <VotingCard state={round} userName={state.user.name} refresh={refresh} />
+            <ParticipationRoster doneNames={round.votedNames} title="Wer hat abgestimmt?" />
+          </>
         )}
 
         {round?.status === 'voting_closed' && (

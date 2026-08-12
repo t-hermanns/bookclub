@@ -11,6 +11,8 @@ import {
   getOwnVote,
   listRoundBooks,
   listRunoffBookIds,
+  listSubmitterNames,
+  listVoterNames,
   type Book,
   type Round,
   type RoundStatus
@@ -36,11 +38,15 @@ export interface StateDTO {
     suggestionsDeadline: string | null;
     votingDeadline: string | null;
     isRunoff: boolean;
-    /** Number of submissions; null while still hidden (during suggestions_open before deadline). */
-    submittedCount: number | null;
-    /** Number of votes cast; null while still hidden (during voting/runoff_open before deadline). */
-    voterCount: number | null;
+    /** Number of submissions (always visible). */
+    submittedCount: number;
+    /** Number of votes cast (always visible). */
+    voterCount: number;
     eligibleVoterCount: number;
+    /** Participants who have submitted a book in the submission round. Anonymous which book. */
+    submittedNames: string[];
+    /** Participants who have cast a vote in the current round. Does not reveal which book. */
+    votedNames: string[];
     /** Has the (current) stage's deadline passed? */
     deadlinePassed: boolean;
     books: PublicBook[];
@@ -171,10 +177,10 @@ export function buildState(user: Participant | null): StateDTO {
       : null;
   const deadlinePassed = activeDeadline ? new Date(activeDeadline).getTime() <= now : true;
 
-  // Hide live counts during open stages until the deadline has passed.
-  const hideSubmittedCount = round.status === 'suggestions_open' && !deadlinePassed;
-  const hideVoterCount =
-    (round.status === 'voting_open' || round.status === 'runoff_open') && !deadlinePassed;
+  // Participation is always visible by name (who has acted), but never linked to a
+  // specific book or vote — that stays hidden per the rules above.
+  const submittedNames = listSubmitterNames(submissionRoundId);
+  const votedNames = listVoterNames(round.id);
 
   return {
     user: { name: user, isAdmin },
@@ -185,9 +191,11 @@ export function buildState(user: Participant | null): StateDTO {
       suggestionsDeadline: round.suggestions_deadline,
       votingDeadline: round.voting_deadline,
       isRunoff,
-      submittedCount: hideSubmittedCount ? null : countSubmitters(submissionRoundId),
-      voterCount: hideVoterCount ? null : countVoters(round.id),
+      submittedCount: countSubmitters(submissionRoundId),
+      voterCount: countVoters(round.id),
       eligibleVoterCount: eligibleVoterCount(round),
+      submittedNames,
+      votedNames,
       deadlinePassed,
       books: publicBooks,
       ownBook: ownBook
