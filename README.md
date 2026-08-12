@@ -1,6 +1,6 @@
 # Bookclub Voting
 
-Kleine Web-App für unseren Bookclub: Buchvorschläge, anonyme Abstimmung, Stichwahlen, Historie. UI auf Deutsch. 11 fest verdrahtete Teilnehmer:innen, ein Admin mit Passwort.
+Kleine Web-App für unseren Bookclub: Buchvorschläge, anonyme Abstimmung, Stichwahlen, Historie. UI auf Deutsch. Fest verdrahtete Teilnehmer:innen, ein Admin mit Passwort.
 
 ## Stack
 - Next.js 14 (App Router, TypeScript)
@@ -47,10 +47,10 @@ Die SQLite-Datei liegt persistent in `./data/`.
 ## Funktionsumfang
 
 - **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie + localStorage). Der Admin bestätigt zusätzlich mit Passwort.
-- **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Live-Zähler X/11.
-- **Vorschläge schließen**: automatisch wenn 11/11 vorliegen, sonst manuell durch den Admin (Warn-Dialog wenn unvollständig).
+- **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Live-Zähler.
+- **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst manuell durch den Admin (Warn-Dialog wenn unvollständig).
 - **Phase "Vorschläge geschlossen"**: alle sehen die Bücher anonym. Eigene Vorschläge bleiben editierbar. Der Admin sieht Hinweis-Banner.
-- **Abstimmung**: anonym, eine Stimme, kein Vote auf eigenes Buch. Live-Zähler. Auto-Close bei 11/11, sonst manuell mit Warn-Dialog.
+- **Abstimmung**: anonym, eine Stimme, kein Vote auf eigenes Buch. Live-Zähler. Auto-Close wenn alle abgestimmt haben, sonst manuell mit Warn-Dialog.
 - **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
 - **Zufallsauswahl**: Der Admin wählt aktiv per Knopfdruck einen zufälligen Gewinner aus den gleichauf liegenden Büchern.
 - **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen.

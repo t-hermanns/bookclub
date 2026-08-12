@@ -107,7 +107,7 @@ export function tallyVotes(roundId: number): Map<number, number> {
   return new Map(rows.map((r) => [r.book_id, r.c]));
 }
 
-/** Eligible voters for a round: for the original voting all 11; for run-off rounds also all 11. */
+/** Eligible voters for a round: all participants, both for the original voting and for run-offs. */
 export function eligibleVoterCount(_round: Round): number {
   return TOTAL_PARTICIPANTS;
 }

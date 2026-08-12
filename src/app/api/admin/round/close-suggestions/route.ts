@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   round = applyAutoTransitions(round);
   if (!round || round.status !== 'suggestions_open')
     return err('Vorschläge sind nicht offen');
-  // Disallow closing before the deadline has passed (auto-close at 11/11 still applies).
+  // Disallow closing before the deadline has passed (auto-close once everyone has submitted still applies).
   if (round.suggestions_deadline && new Date(round.suggestions_deadline).getTime() > Date.now()) {
     return err('Frist ist noch nicht abgelaufen', 409);
   }
