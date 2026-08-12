@@ -7,10 +7,11 @@ export const PARTICIPANTS = [
   'Frank',
   'Grace',
   'Heidi',
-  'Paul',
   'Ivan',
   'Judy',
-  'Kim'
+  'Kim',
+  'Leo',
+  'Mia'
 ] as const;
 
 export type Participant = (typeof PARTICIPANTS)[number];
