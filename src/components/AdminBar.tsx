@@ -279,14 +279,16 @@ function TieControls({
       {!allTied && (
         <div className="space-y-2">
           <label className="block text-sm font-medium">Stichwahl-Frist (Datum & Uhrzeit)</label>
-          <DeadlinePicker defaultHours={8} value={deadline} onChange={setDeadline} />
-          <button
-            className="btn-primary"
-            disabled={busy || !deadline}
-            onClick={() => onRunoff(localInputToISO(deadline), tiedBooks.map((b) => b.id))}
-          >
-            Stichwahl starten
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DeadlinePicker defaultHours={8} value={deadline} onChange={setDeadline} />
+            <button
+              className="btn-primary"
+              disabled={busy || !deadline}
+              onClick={() => onRunoff(localInputToISO(deadline), tiedBooks.map((b) => b.id))}
+            >
+              Stichwahl starten
+            </button>
+          </div>
         </div>
       )}
       <button className="btn-secondary" disabled={busy} onClick={() => setConfirmRandom(true)}>
