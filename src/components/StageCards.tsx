@@ -268,7 +268,7 @@ export function ResultCard({ state }: { state: NonNullable<StateDTO['round']> })
       <div className="card animate-pop space-y-2 border-amber-300 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/30">
         <h2 className="text-lg font-semibold">⚖️ Gleichstand</h2>
         <p className="text-sm text-amber-900 dark:text-amber-200">
-          {state.tied.length} Bücher haben gleich viele Stimmen. Der Admin entscheidet, ob eine
+          {state.tied.length} Bücher haben gleich viele Stimmen. Der Diktator entscheidet, ob eine
           Stichwahl gestartet oder zufällig ausgewählt wird.
         </p>
         <ul className="list-inside list-disc text-sm">

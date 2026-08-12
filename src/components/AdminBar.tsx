@@ -50,7 +50,7 @@ export function AdminBar({
 
   return (
     <div className="card space-y-3 border-brand-200 bg-brand-50/50 dark:border-brand-700/40 dark:bg-brand-700/10">
-      <h2 className="text-lg font-semibold">Admin-Bereich</h2>
+      <h2 className="text-lg font-semibold">Diktator-Bereich</h2>
       {error && <div className="banner-warn">{error}</div>}
 
       {!round && (

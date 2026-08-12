@@ -47,7 +47,7 @@ export default function Home() {
 
         {!round && !last && !state.user.isAdmin && (
           <div className="card">
-            Aktuell läuft keine Runde. Sobald der Admin eine startet, kannst du hier einreichen.
+            Aktuell läuft keine Runde. Sobald der Diktator eine startet, kannst du hier einreichen.
           </div>
         )}
 

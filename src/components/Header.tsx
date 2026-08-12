@@ -20,7 +20,7 @@ export function Header({
           </span>
           {isAdmin && (
             <span className="pill bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">
-              Admin
+              Diktator
             </span>
           )}
         </Link>
