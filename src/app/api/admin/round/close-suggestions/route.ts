@@ -17,10 +17,8 @@ export async function POST(req: NextRequest) {
   round = applyAutoTransitions(round);
   if (!round || round.status !== 'suggestions_open')
     return err('Vorschläge sind nicht offen');
-  // Disallow closing before the deadline has passed (auto-close once everyone has submitted still applies).
-  if (round.suggestions_deadline && new Date(round.suggestions_deadline).getTime() > Date.now()) {
-    return err('Frist ist noch nicht abgelaufen', 409);
-  }
+  // The admin may close at any time (the deadline is only a fallback for auto-close);
+  // an incomplete tally still needs force=true as a confirmation.
   const body = await req.json().catch(() => ({}));
   const force = !!(body as any).force;
   const submitted = countSubmitters(round.id);

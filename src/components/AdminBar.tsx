@@ -61,7 +61,7 @@ export function AdminBar({
         />
       )}
 
-      {round?.status === 'suggestions_open' && round.deadlinePassed && (
+      {round?.status === 'suggestions_open' && (
         <button
           className="btn-primary"
           disabled={busy}
@@ -92,12 +92,6 @@ export function AdminBar({
         </button>
       )}
 
-      {round?.status === 'suggestions_open' && !round.deadlinePassed && (
-        <div className="text-sm text-slate-500">
-          Vorschläge können erst nach Ablauf der Frist manuell geschlossen werden.
-        </div>
-      )}
-
       {round?.status === 'suggestions_closed' && (
         <>
           <div className="banner-info">
@@ -107,8 +101,7 @@ export function AdminBar({
         </>
       )}
 
-      {(round?.status === 'voting_open' || round?.status === 'runoff_open') &&
-        round.deadlinePassed && (
+      {(round?.status === 'voting_open' || round?.status === 'runoff_open') && (
           <button
             className="btn-primary"
             disabled={busy}
@@ -137,13 +130,6 @@ export function AdminBar({
           >
             Abstimmung schließen
           </button>
-        )}
-
-      {(round?.status === 'voting_open' || round?.status === 'runoff_open') &&
-        !round.deadlinePassed && (
-          <div className="text-sm text-slate-500">
-            Abstimmung kann erst nach Ablauf der Frist manuell geschlossen werden.
-          </div>
         )}
 
       {round?.status === 'voting_closed' && round.winner && (

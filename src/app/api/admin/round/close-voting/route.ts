@@ -18,9 +18,8 @@ export async function POST(req: NextRequest) {
   if (!round) return err('Keine Abstimmung aktiv');
   if (round.status !== 'voting_open' && round.status !== 'runoff_open')
     return err('Abstimmung ist nicht offen');
-  if (round.voting_deadline && new Date(round.voting_deadline).getTime() > Date.now()) {
-    return err('Frist ist noch nicht abgelaufen', 409);
-  }
+  // The admin may close at any time (the deadline is only a fallback for auto-close);
+  // an incomplete tally still needs force=true as a confirmation.
   const body = await req.json().catch(() => ({}));
   const force = !!(body as any).force;
   const eligible = eligibleVoterCount(round);
