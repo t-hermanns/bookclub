@@ -85,7 +85,7 @@ function ResultCardInline({ winner }: { winner: { title: string; author: string;
       <h2 className="text-lg font-semibold">🏆 Gewinner</h2>
       <div className="text-xl font-bold">{winner.title}</div>
       <div className="text-slate-500">von {winner.author}</div>
-      <a className="text-brand-600 hover:underline" href={winner.link} target="_blank" rel="noreferrer">
+      <a className="block break-words text-brand-600 hover:underline" href={winner.link} target="_blank" rel="noreferrer">
         {winner.link}
       </a>
       {winner.submitter && (
@@ -109,7 +109,7 @@ function BooksListInline({
       <ul className="divide-y divide-slate-200 dark:divide-slate-800">
         {books.map((b) => (
           <li key={b.id} className="flex items-start justify-between gap-3 py-2">
-            <div>
+            <div className="min-w-0">
               <div className="font-medium">
                 {b.title} {b.id === winnerId && <span className="text-brand-600">🏆</span>}
               </div>
@@ -117,12 +117,12 @@ function BooksListInline({
                 von {b.author}
                 {b.submitter && <> · vorgeschlagen von {b.submitter}</>}
               </div>
-              <a className="text-sm text-brand-600 hover:underline" href={b.link} target="_blank" rel="noreferrer">
+              <a className="block break-words text-sm text-brand-600 hover:underline" href={b.link} target="_blank" rel="noreferrer">
                 {b.link}
               </a>
             </div>
             {typeof b.votes === 'number' && (
-              <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">
+              <span className="shrink-0 rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">
                 {b.votes}
               </span>
             )}
