@@ -212,7 +212,7 @@ export function VotingCard({
                     </a>
                     {disallowOwn && (
                       <div className="text-xs text-slate-500">
-                        Eigenes Buch — nicht wählbar (außer in Stichwahl)
+                        Eigenes Buch — nicht wählbar
                       </div>
                     )}
                   </div>
