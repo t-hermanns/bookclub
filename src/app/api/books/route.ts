@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import crypto from 'node:crypto';
 import { err, ok, requireUser } from '@/lib/api';
 import { getDb } from '@/lib/db';
 import { applyAutoTransitions, getActiveRound, getOwnBook } from '@/lib/round';
@@ -48,10 +49,19 @@ export async function POST(req: NextRequest) {
     ).run(title, author, link, existing.id);
     return ok({ ok: true, id: existing.id, updated: true });
   }
-  const res = db
-    .prepare(
-      'INSERT INTO books(round_id, title, author, link, submitter_name) VALUES(?,?,?,?,?)'
-    )
-    .run(submissionRoundId, title, author, link, u);
-  return ok({ ok: true, id: Number(res.lastInsertRowid), created: true });
+  // Assign a random (non-sequential) id so the id never reveals submission order.
+  const insert = db.prepare(
+    'INSERT INTO books(id, round_id, title, author, link, submitter_name) VALUES(?,?,?,?,?,?)'
+  );
+  for (let attempt = 0; ; attempt++) {
+    const id = crypto.randomInt(1, 2_147_483_647);
+    try {
+      insert.run(id, submissionRoundId, title, author, link, u);
+      return ok({ ok: true, id, created: true });
+    } catch (e: any) {
+      // Retry only on the (astronomically unlikely) id collision.
+      if (e?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' && attempt < 10) continue;
+      throw e;
+    }
+  }
 }

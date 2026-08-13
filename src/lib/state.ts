@@ -17,7 +17,7 @@ import {
   type Round,
   type RoundStatus
 } from './round';
-import { ADMIN_NAME, type Participant } from './participants';
+import { ADMIN_NAME, PARTICIPANTS, type Participant } from './participants';
 import { TOTAL_PARTICIPANTS } from './participants';
 
 export interface PublicBook {
@@ -178,9 +178,13 @@ export function buildState(user: Participant | null): StateDTO {
   const deadlinePassed = activeDeadline ? new Date(activeDeadline).getTime() <= now : true;
 
   // Participation is always visible by name (who has acted), but never linked to a
-  // specific book or vote — that stays hidden per the rules above.
-  const submittedNames = listSubmitterNames(submissionRoundId);
-  const votedNames = listVoterNames(round.id);
+  // specific book or vote — that stays hidden per the rules above. Emit the names in a
+  // fixed participant order (NOT submission order) so the arrays can't be index-matched
+  // against the books list to reveal who submitted which book.
+  const submittedSet = new Set(listSubmitterNames(submissionRoundId));
+  const votedSet = new Set(listVoterNames(round.id));
+  const submittedNames = PARTICIPANTS.filter((p) => submittedSet.has(p));
+  const votedNames = PARTICIPANTS.filter((p) => votedSet.has(p));
 
   return {
     user: { name: user, isAdmin },
