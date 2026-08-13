@@ -17,7 +17,7 @@ export function ParticipationRoster({
   return (
     <div className="card space-y-3">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {PARTICIPANTS.map((n) => {
           const ok = done.has(n);
           return (
