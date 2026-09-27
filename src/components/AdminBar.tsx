@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { StateDTO } from '@/lib/state';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DeadlinePicker, localInputToISO, useDefaultDeadline } from './DeadlinePicker';
-import { VOTING_SYSTEMS, votingSystemLabel, type VotingSystem } from '@/lib/voting';
+import { votingSystemLabel, type VotingSystem } from '@/lib/voting';
 
 async function post(url: string, body?: unknown) {
   const res = await fetch(url, {
@@ -204,12 +204,12 @@ function StartSuggestions({
       <p className="text-sm">Aktuell läuft keine Runde.</p>
       {votingSystem ? (
         <p className="text-sm">
-          Abstimmung in der neuen Runde: <strong>{votingSystemLabel(votingSystem)}</strong>{' '}
-          <span className="text-slate-500">(Einstellung VOTING_SYSTEM)</span>
+          Abstimmung in der nächsten Runde: <strong>{votingSystemLabel(votingSystem)}</strong>
         </p>
       ) : (
         <div className="banner-warn">
-          VOTING_SYSTEM hat einen unbekannten Wert. Erlaubt: {Object.keys(VOTING_SYSTEMS).join(', ')}.
+          Das Abstimmungssystem ist falsch eingestellt – so lange kann keine neue Runde gestartet
+          werden.
         </div>
       )}
       <label className="block text-sm font-medium">Frist (Datum & Uhrzeit)</label>
