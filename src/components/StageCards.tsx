@@ -244,7 +244,6 @@ function PointsBallot({
   // The allocation on screen while it differs from the server (being saved, or incomplete);
   // null shows the saved ballot.
   const [draft, setDraft] = useState<Map<number, number> | null>(null);
-  const [saving, setSaving] = useState(false);
   const current = draft ?? saved;
   const left = total - pointsOf(current);
 
@@ -270,11 +269,9 @@ function PointsBallot({
     queued.current = null;
     if (!next) return;
     inFlight.current = true;
-    setSaving(true);
     const ok = await onSave(Array.from(next, ([bookId, points]) => ({ bookId, points })));
     inFlight.current = false;
     if (queued.current) return flush();
-    setSaving(false);
     // Saved: show it from the server again, unless the user has changed it meanwhile.
     // Failed: fall back to what the server has (the error is shown above).
     setDraft((d) => (!ok || (d && sameBallot(d, next)) ? null : d));
@@ -282,10 +279,6 @@ function PointsBallot({
 
   return (
     <>
-      <div className="banner-info">
-        Du hast {total} Stimmen. Verteile sie auf die Bücher – gerne auch mehrere auf dasselbe.
-        Sobald alle {total} verteilt sind, wird automatisch gespeichert.
-      </div>
       <ul className="space-y-2">
         {state.books.map((b) => {
           const disallowOwn = b.id === ownBookId && !state.isRunoff;
@@ -323,24 +316,21 @@ function PointsBallot({
           );
         })}
       </ul>
-      <BallotStatus total={total} left={left} saving={saving} />
+      <BallotStatus total={total} left={left} />
     </>
   );
 }
 
-/** Sticky bar at the bottom of the ballot: votes placed (dots) and whether they are saved. */
-function BallotStatus({ total, left, saving }: { total: number; left: number; saving: boolean }) {
-  const done = left === 0 && !saving;
-  const text =
-    left > 0
-      ? `Noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} zu vergeben`
-      : saving
-      ? `Alle ${total} Stimmen vergeben – wird gespeichert …`
-      : `Alle ${total} Stimmen vergeben`;
+/** Sticky bar at the bottom of the ballot: how many votes are placed (dots) and how many are left. */
+function BallotStatus({ total, left }: { total: number; left: number }) {
+  const done = left === 0;
+  const text = done
+    ? `Alle ${total} Stimmen vergeben`
+    : `Du musst noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} vergeben`;
   return (
     <div
       role="status"
-      className={`sticky bottom-3 z-10 flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm shadow-lg backdrop-blur ${
+      className={`sticky bottom-3 z-10 flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm shadow-lg backdrop-blur ${
         done
           ? 'border-emerald-300 bg-emerald-50/95 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100'
           : 'border-slate-200 bg-white/95 text-slate-700 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200'
