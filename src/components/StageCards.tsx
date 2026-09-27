@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { PublicBook, StateDTO } from '@/lib/state';
 import type { BallotEntry } from '@/lib/voting';
 import { Countdown } from './Countdown';
@@ -226,12 +226,10 @@ export function VotingCard({
   );
 }
 
-const SAVE_DELAY_MS = 400;
-
 /**
- * Ballot for systems with several votes per person: +/- per book, saved automatically shortly
- * after the last click. Only a complete ballot counts, so taking a vote away again withdraws the
- * saved one until all votes are placed; moving a vote (- then +) within the delay saves once.
+ * Ballot for systems with several votes per person: +/- per book, saved automatically as soon as
+ * all votes are placed. An incomplete allocation is never sent: while someone rearranges their
+ * votes, the previously saved (complete) ballot keeps counting.
  */
 function PointsBallot({
   state,
@@ -243,20 +241,16 @@ function PointsBallot({
   const total = state.votesPerVoter;
   const ownBookId = state.ownBook?.id ?? null;
   const saved = new Map(state.ownBallot.map((e) => [e.bookId, e.points]));
-  // The allocation on screen while it differs from the server (unsaved or incomplete);
+  // The allocation on screen while it differs from the server (being saved, or incomplete);
   // null shows the saved ballot.
   const [draft, setDraft] = useState<Map<number, number> | null>(null);
-  const [pending, setPending] = useState(false);
+  const [saving, setSaving] = useState(false);
   const current = draft ?? saved;
   const left = total - pointsOf(current);
 
-  // The debounced save runs after renders its closure didn't see, so it works on refs.
-  const savedRef = useRef(saved);
-  savedRef.current = saved;
-  const latest = useRef<Map<number, number> | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saving = useRef(false);
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  // One save at a time; a ballot completed meanwhile is sent right after.
+  const inFlight = useRef(false);
+  const queued = useRef<Map<number, number> | null>(null);
 
   function change(bookId: number, delta: number) {
     const next = new Map(current);
@@ -264,42 +258,33 @@ function PointsBallot({
     if (n > 0) next.set(bookId, n);
     else next.delete(bookId);
     setDraft(next);
-    latest.current = next;
-    setPending(true);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, SAVE_DELAY_MS);
+    if (pointsOf(next) !== total) return; // incomplete: keep it local, the saved ballot still counts
+    // Back to what the server has: nothing to send (unless a different ballot is still being saved).
+    if (!inFlight.current && sameBallot(next, saved)) return setDraft(null);
+    queued.current = next;
+    if (!inFlight.current) void flush();
   }
 
-  async function flush(): Promise<void> {
-    timer.current = null;
-    if (saving.current) return; // the running save picks up the latest change afterwards
-    const next = latest.current;
-    latest.current = null;
-    if (!next) return setPending(false);
-    const complete = pointsOf(next) === total;
-    const onServer = savedRef.current;
-    const unchanged = complete ? sameBallot(next, onServer) : onServer.size === 0;
-    if (!unchanged) {
-      saving.current = true;
-      const ok = await onSave(complete ? Array.from(next, ([bookId, points]) => ({ bookId, points })) : []);
-      saving.current = false;
-      if (!ok) {
-        latest.current = null;
-        setDraft(null);
-        return setPending(false);
-      }
-    }
-    if (latest.current) return flush();
-    setPending(false);
-    // The server now holds this ballot: show it from there again (an incomplete one stays local).
-    if (complete) setDraft((d) => (d && sameBallot(d, next) ? null : d));
+  async function flush() {
+    const next = queued.current;
+    queued.current = null;
+    if (!next) return;
+    inFlight.current = true;
+    setSaving(true);
+    const ok = await onSave(Array.from(next, ([bookId, points]) => ({ bookId, points })));
+    inFlight.current = false;
+    if (queued.current) return flush();
+    setSaving(false);
+    // Saved: show it from the server again, unless the user has changed it meanwhile.
+    // Failed: fall back to what the server has (the error is shown above).
+    setDraft((d) => (!ok || (d && sameBallot(d, next)) ? null : d));
   }
 
   return (
     <>
       <div className="banner-info">
         Du hast {total} Stimmen. Verteile sie auf die Bücher – gerne auch mehrere auf dasselbe.
-        Deine Auswahl wird automatisch gespeichert.
+        Sobald alle {total} verteilt sind, wird automatisch gespeichert.
       </div>
       <ul className="space-y-2">
         {state.books.map((b) => {
@@ -338,73 +323,45 @@ function PointsBallot({
           );
         })}
       </ul>
-      <BallotStatus total={total} left={left} saving={pending} />
+      <BallotStatus total={total} left={left} saving={saving} />
     </>
   );
 }
 
-// TEMPORARY: three looks for the status to compare (?variante=a|b|c); one stays.
+/** Sticky bar at the bottom of the ballot: votes placed (dots) and whether they are saved. */
 function BallotStatus({ total, left, saving }: { total: number; left: number; saving: boolean }) {
-  const variant =
-    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('variante')) || 'a';
-  const done = left === 0;
-  const text = done
-    ? saving
+  const done = left === 0 && !saving;
+  const text =
+    left > 0
+      ? `Noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} zu vergeben`
+      : saving
       ? `Alle ${total} Stimmen vergeben – wird gespeichert …`
-      : `Alle ${total} Stimmen vergeben`
-    : `Noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} zu vergeben`;
-  const hint = done ? null : `Deine Stimmen zählen, sobald alle ${total} verteilt sind.`;
-  const ok = done && !saving;
-
-  if (variant === 'b') {
-    return (
-      <div
-        className={
-          ok
-            ? 'rounded-xl border border-emerald-300/80 bg-emerald-50/90 p-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100'
-            : 'banner-warn'
-        }
-      >
-        <div className="font-medium">{ok ? `✓ ${text}` : text}</div>
-        {hint && <div>{hint}</div>}
-      </div>
-    );
-  }
-  if (variant === 'c') {
-    return (
-      <div
-        className={`sticky bottom-3 z-10 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${
-          ok
-            ? 'border-emerald-300 bg-emerald-50/95 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100'
-            : 'border-slate-200 bg-white/95 text-slate-700 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200'
-        }`}
-      >
-        <div className="flex shrink-0 gap-1.5" aria-hidden>
-          {Array.from({ length: total }, (_, i) => (
-            <span
-              key={i}
-              className={`h-3.5 w-3.5 rounded-full border-2 ${
-                i < total - left
-                  ? ok
-                    ? 'border-emerald-600 bg-emerald-600'
-                    : 'border-brand-600 bg-brand-600'
-                  : 'border-slate-300 dark:border-slate-600'
-              }`}
-            />
-          ))}
-        </div>
-        <div>
-          <div className="font-medium">{ok ? `✓ ${text}` : text}</div>
-          {hint && <div className="text-xs opacity-80">{hint}</div>}
-        </div>
-      </div>
-    );
-  }
+      : `Alle ${total} Stimmen vergeben`;
   return (
-    <p className={ok ? 'text-sm font-medium text-emerald-700 dark:text-emerald-400' : 'text-sm text-slate-500'}>
-      {ok ? `✓ ${text}` : text}
-      {hint && <span className="block text-xs">{hint}</span>}
-    </p>
+    <div
+      role="status"
+      className={`sticky bottom-3 z-10 flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm shadow-lg backdrop-blur ${
+        done
+          ? 'border-emerald-300 bg-emerald-50/95 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100'
+          : 'border-slate-200 bg-white/95 text-slate-700 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200'
+      }`}
+    >
+      <div className="flex shrink-0 gap-1.5" aria-hidden>
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            className={`h-3 w-3 rounded-full border-2 ${
+              i < total - left
+                ? done
+                  ? 'border-emerald-600 bg-emerald-600'
+                  : 'border-brand-600 bg-brand-600'
+                : 'border-slate-300 dark:border-slate-600'
+            }`}
+          />
+        ))}
+      </div>
+      <div className="font-medium">{text}</div>
+    </div>
   );
 }
 

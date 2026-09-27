@@ -45,13 +45,7 @@ export async function POST(req: NextRequest) {
     return err('Die Abstimmung hat inzwischen gewechselt – bitte stimme noch einmal ab.', 409);
 
   const ballot = parseBallot(body);
-  if (!ballot) return err('Ungültige Buchwahl');
-  // An empty ballot withdraws the voter's votes: the multi-vote ballot saves as you click and
-  // only a complete ballot counts, so taking a vote away again withdraws the saved one.
-  if (ballot.length === 0) {
-    castBallot(round.id, u, []);
-    return ok({ ok: true });
-  }
+  if (!ballot || ballot.length === 0) return err('Ungültige Buchwahl');
   const needed = votesPerVoter(round);
   const total = ballot.reduce((sum, e) => sum + e.points, 0);
   if (total !== needed)
