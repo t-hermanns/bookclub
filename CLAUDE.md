@@ -19,7 +19,7 @@ npm run lint    # next lint (eslint-config-next)
 There is no test suite. The SQLite database is created automatically under `./data/` (override with `DATA_DIR`).
 
 ### Environment variables
-- `SESSION_SECRET` — HMAC key for the auth cookie. Falls back to an insecure dev default; **must be set in production**.
+- `SESSION_SECRET` — HMAC key for the auth cookie. Falls back to an insecure dev default outside production; in production (`NODE_ENV=production`) an unset or placeholder value makes `getSecret()` in `src/lib/auth.ts` throw on first use, and `docker-compose.yml` refuses to start without it.
 - `ADMIN_PASSWORD` — admin password (default `change-me`).
 - `DATA_DIR` — SQLite directory (default `./data`).
 

@@ -7,7 +7,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - SESSION_SECRET=${SESSION_SECRET:-please-change-me}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET muss gesetzt sein}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
     volumes:
       # ÄNDERUNG HIER: Statt ./data nutzen wir ein Named Volume

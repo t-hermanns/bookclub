@@ -18,7 +18,7 @@ npm run dev   # http://localhost:3000
 Datenbank wird automatisch unter `./data/` angelegt.
 
 Umgebungsvariablen (optional, siehe `.env.example`):
-- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion unbedingt setzen.**
+- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion Pflicht:** Fehlt die Variable (oder steht noch ein Platzhalter wie in `.env.example` drin), startet `docker compose` nicht bzw. die App beantwortet keine Anfragen. Wer den Wert kennt, kann sich als beliebige Person anmelden – auch als Admin.
 - `ADMIN_PASSWORD` – Admin-Passwort (Default: `change-me`).
 - `DATA_DIR` – Pfad zum SQLite-Verzeichnis (Default: `./data`).
 
