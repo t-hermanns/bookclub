@@ -6,7 +6,6 @@ const POLL_MS = 5000;
 
 export function useAppState() {
   const [state, setState] = useState<StateDTO | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,12 +16,9 @@ export function useAppState() {
         const res = await fetch('/api/state', { cache: 'no-store' });
         if (!res.ok) throw new Error('state http ' + res.status);
         const data = (await res.json()) as StateDTO;
-        if (!cancelled) {
-          setState(data);
-          setError(null);
-        }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Fehler');
+        if (!cancelled) setState(data);
+      } catch {
+        // Keep showing the last known state; the next tick retries.
       } finally {
         if (!cancelled) timer = setTimeout(tick, POLL_MS);
       }
@@ -39,5 +35,5 @@ export function useAppState() {
     if (res.ok) setState(await res.json());
   }
 
-  return { state, error, refresh, setState };
+  return { state, refresh };
 }

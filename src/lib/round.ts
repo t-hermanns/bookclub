@@ -1,14 +1,12 @@
 import { getDb } from './db';
-import { PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { TOTAL_PARTICIPANTS, type Participant } from './participants';
 
 export type RoundStatus =
-  | 'idle'
   | 'suggestions_open'
   | 'suggestions_closed'
   | 'voting_open'
   | 'voting_closed'
   | 'runoff_open'
-  | 'tied_random_pending'
   | 'finished';
 
 export interface Round {
@@ -250,12 +248,6 @@ export function finishWithWinner(roundId: number, bookId: number) {
   setActiveRoundId(null);
 }
 
-export function markTiedRandomPending(roundId: number) {
-  getDb()
-    .prepare("UPDATE rounds SET status='tied_random_pending' WHERE id=?")
-    .run(roundId);
-}
-
 export function pickRandomFrom(roundId: number, bookIds: number[]): number {
   if (bookIds.length === 0) throw new Error('No books to pick from');
   const idx = Math.floor(Math.random() * bookIds.length);
@@ -278,12 +270,7 @@ export function applyAutoTransitions(round: Round | null): Round | null {
   // Auto-close voting (or run-off) when all eligible voters have voted.
   if (round.status === 'voting_open' || round.status === 'runoff_open') {
     if (countVoters(round.id) >= eligibleVoterCount(round)) {
-      const isRunoff = !!round.runoff_parent_id;
-      getDb()
-        .prepare(
-          `UPDATE rounds SET status=? WHERE id=?`
-        )
-        .run(isRunoff ? 'voting_closed' : 'voting_closed', round.id);
+      closeVoting(round.id);
       return getRound(round.id);
     }
   }
@@ -310,5 +297,3 @@ export function bookById(id: number): Book | null {
     (getDb().prepare('SELECT * FROM books WHERE id=?').get(id) as Book | undefined) ?? null
   );
 }
-
-export { PARTICIPANTS };

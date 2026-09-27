@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { StateDTO } from '@/lib/state';
-import { Countdown, fmtDate } from './Countdown';
+import { Countdown } from './Countdown';
 
 export function SubmissionCard({
   state,
@@ -135,11 +135,9 @@ export function BooksList({
 
 export function VotingCard({
   state,
-  userName,
   refresh
 }: {
   state: NonNullable<StateDTO['round']>;
-  userName: string;
   refresh: () => void;
 }) {
   const [chosen, setChosen] = useState<number | null>(state.ownVoteBookId);

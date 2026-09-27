@@ -83,5 +83,3 @@ export function setSessionCookie(name: Participant) {
 export function clearSessionCookie() {
   cookies().delete(COOKIE_NAME);
 }
-
-export { COOKIE_NAME, ADMIN_NAME };

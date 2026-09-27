@@ -65,21 +65,3 @@ export function getDb(): Database.Database {
   }
   return global.__bookclub_db;
 }
-
-export function setState(key: string, value: string | null) {
-  const db = getDb();
-  if (value === null) {
-    db.prepare('DELETE FROM app_state WHERE key = ?').run(key);
-  } else {
-    db.prepare(
-      'INSERT INTO app_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value'
-    ).run(key, value);
-  }
-}
-
-export function getState(key: string): string | null {
-  const row = getDb().prepare('SELECT value FROM app_state WHERE key=?').get(key) as
-    | { value: string }
-    | undefined;
-  return row?.value ?? null;
-}

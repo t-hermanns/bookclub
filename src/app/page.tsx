@@ -67,7 +67,7 @@ export default function Home() {
 
         {(round?.status === 'voting_open' || round?.status === 'runoff_open') && (
           <>
-            <VotingCard state={round} userName={state.user.name} refresh={refresh} />
+            <VotingCard state={round} refresh={refresh} />
             <ParticipationRoster doneNames={round.votedNames} title="Wer hat abgestimmt?" />
           </>
         )}
@@ -149,7 +149,6 @@ function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'
     voting_open: 'Abstimmung läuft',
     runoff_open: 'Stichwahl läuft',
     voting_closed: 'Abstimmung beendet',
-    tied_random_pending: 'Gleichstand — Entscheidung steht aus',
     finished: 'Runde beendet'
   };
   const dot: Record<string, string> = {
@@ -158,7 +157,6 @@ function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'
     voting_open: 'bg-emerald-500',
     runoff_open: 'bg-amber-500',
     voting_closed: 'bg-slate-500',
-    tied_random_pending: 'bg-amber-500',
     finished: 'bg-emerald-600'
   };
   return (

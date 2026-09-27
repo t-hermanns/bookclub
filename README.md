@@ -46,7 +46,7 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 
 ## Funktionsumfang
 
-- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie + localStorage). Der Admin bestätigt zusätzlich mit Passwort.
+- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie). Der Admin bestätigt zusätzlich mit Passwort.
 - **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Sichtbar ist, **wer** schon eingereicht hat und wer noch aussteht (aber nicht was).
 - **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
 - **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
