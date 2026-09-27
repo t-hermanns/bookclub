@@ -3,11 +3,40 @@ import crypto from 'node:crypto';
 import { ADMIN_NAME, isParticipant, type Participant } from './participants';
 
 const COOKIE_NAME = 'bc_session';
-const SECRET = process.env.SESSION_SECRET ?? 'dev-insecure-secret-change-me';
+const DEV_SECRET = 'dev-insecure-secret-change-me';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'change-me';
 
+// Well-known placeholders (dev default, docker-compose.yml / .env.example examples).
+// Anyone who knows the secret can forge a session for any name, including the admin.
+const PLACEHOLDER_SECRETS = new Set([
+  DEV_SECRET,
+  'please-change-me',
+  'please-change-me-to-a-long-random-string'
+]);
+
+let secret: string | null = null;
+
+// Resolved on first use rather than at import time, so `next build` works without it.
+function getSecret(): string {
+  if (secret) return secret;
+  const s = process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === 'production' && (!s || PLACEHOLDER_SECRETS.has(s))) {
+    throw new Error(
+      'SESSION_SECRET ist nicht gesetzt oder ein Platzhalter. In Produktion einen eigenen Zufallswert setzen (z. B. `openssl rand -hex 32`).'
+    );
+  }
+  secret = s || DEV_SECRET;
+  return secret;
+}
+
 function sign(payload: string): string {
-  return crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
+  return crypto.createHmac('sha256', getSecret()).update(payload).digest('hex');
+}
+
+/** Constant-time comparison; hashing first means differing lengths don't short-circuit either. */
+function safeEqual(a: string, b: string): boolean {
+  const h = (s: string) => crypto.createHash('sha256').update(s).digest();
+  return crypto.timingSafeEqual(h(a), h(b));
 }
 
 export function makeToken(name: Participant): string {
@@ -20,7 +49,7 @@ export function verifyToken(token: string | undefined | null): Participant | nul
   if (!token) return null;
   const [b64, sig] = token.split('.');
   if (!b64 || !sig) return null;
-  if (sign(b64) !== sig) return null;
+  if (!safeEqual(sign(b64), sig)) return null;
   try {
     const obj = JSON.parse(Buffer.from(b64, 'base64url').toString());
     if (typeof obj.name === 'string' && isParticipant(obj.name)) return obj.name;
@@ -29,7 +58,7 @@ export function verifyToken(token: string | undefined | null): Participant | nul
 }
 
 export function checkAdminPassword(pw: string): boolean {
-  return pw === ADMIN_PASSWORD;
+  return safeEqual(pw, ADMIN_PASSWORD);
 }
 
 export function getCurrentUser(): Participant | null {
@@ -54,5 +83,3 @@ export function setSessionCookie(name: Participant) {
 export function clearSessionCookie() {
   cookies().delete(COOKIE_NAME);
 }
-
-export { COOKIE_NAME, ADMIN_NAME };

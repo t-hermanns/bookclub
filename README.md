@@ -18,7 +18,7 @@ npm run dev   # http://localhost:3000
 Datenbank wird automatisch unter `./data/` angelegt.
 
 Umgebungsvariablen (optional, siehe `.env.example`):
-- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion unbedingt setzen.**
+- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion Pflicht:** Fehlt die Variable (oder steht noch ein Platzhalter wie in `.env.example` drin), startet `docker compose` nicht bzw. die App beantwortet keine Anfragen. Wer den Wert kennt, kann sich als beliebige Person anmelden – auch als Admin.
 - `ADMIN_PASSWORD` – Admin-Passwort (Default: `change-me`).
 - `DATA_DIR` – Pfad zum SQLite-Verzeichnis (Default: `./data`).
 
@@ -34,7 +34,7 @@ cp .env.example .env  # SESSION_SECRET ändern!
 docker compose up -d --build
 ```
 
-Die SQLite-Datei liegt persistent in `./data/`.
+Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose stellt dem Namen den Projektnamen voran, hier also `bookclub_bookclub_data` (`docker volume ls | grep bookclub`).
 
 ### Variante B: Stack in Portainer
 
@@ -42,18 +42,19 @@ Die SQLite-Datei liegt persistent in `./data/`.
 2. Inhalt aus `docker-compose.yml` einfügen.
 3. Unter "Environment variables" `SESSION_SECRET` (Pflicht) und ggf. `ADMIN_PASSWORD` setzen.
 4. Optional: Build-Kontext über Portainer-Git verwenden, damit Updates per "Pull and redeploy" laufen.
-5. Volume-Mount `./data:/app/data` zeigt auf einen Ordner relativ zum Stack-Verzeichnis (Portainer legt das automatisch an).
+5. Die Datenbank landet im Named Volume `<stackname>_bookclub_data` (Portainer → **Volumes**). Es bleibt bei Redeploys erhalten.
 
 ## Funktionsumfang
 
-- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie + localStorage). Der Admin bestätigt zusätzlich mit Passwort.
+- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie). Der Admin bestätigt zusätzlich mit Passwort.
 - **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Sichtbar ist, **wer** schon eingereicht hat und wer noch aussteht (aber nicht was).
 - **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
+- **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
 - **Phase "Vorschläge geschlossen"**: alle sehen die Bücher anonym. Eigene Vorschläge bleiben editierbar. Der Admin sieht Hinweis-Banner.
 - **Abstimmung**: anonym, eine Stimme, kein Vote auf eigenes Buch. Sichtbar ist, **wer** schon abgestimmt hat und wer noch aussteht (aber nicht wofür). Auto-Close wenn alle abgestimmt haben, sonst jederzeit manuell durch den Admin.
 - **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
 - **Zufallsauswahl**: Der Admin wählt aktiv per Knopfdruck einen zufälligen Gewinner aus den gleichauf liegenden Büchern.
-- **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen.
+- **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen. Wurde der Gewinner per Stichwahl oder Zufall bestimmt, steht das am Gewinner; die Ergebnisse jeder Stichwahl lassen sich aufklappen.
 
 ## Datenmodell
 
@@ -61,20 +62,30 @@ Die SQLite-Datei liegt persistent in `./data/`.
 
 ## Backup
 
-Die einzige zustandsbehaftete Datei ist `data/bookclub.sqlite` (+ WAL/SHM). Einfach den `data`-Ordner sichern.
+Der einzige Zustand ist der Datenordner `/app/data` im Volume: `bookclub.sqlite` plus `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Immer alle drei sichern – die letzten Änderungen stehen oft noch in der `-wal`-Datei.
+
+```bash
+# kompletten Datenordner aus dem Container auf den Host kopieren
+docker cp bookclub:/app/data ./bookclub-backup-$(date +%F)
+```
+
+Für ein garantiert konsistentes Backup die App vorher kurz stoppen (`docker stop bookclub`) und danach wieder starten (`docker start bookclub`).
 
 ## Datenbank manuell einsehen / bearbeiten
 
-Die SQLite-Datei liegt unter `data/bookclub.sqlite` (lokal: `./data/bookclub.sqlite`, im Container: `/app/data/bookclub.sqlite`).
+- Lokal (`npm run dev`): `./data/bookclub.sqlite`
+- Im Container: `/app/data/bookclub.sqlite`
+- Auf dem Host im Volume: `/var/lib/docker/volumes/<stackname>_bookclub_data/_data/bookclub.sqlite` (nur mit `sudo` lesbar; `docker volume inspect <name>` zeigt den genauen Pfad)
 
-### Lokal
+### Kopie ansehen (am einfachsten)
 
 ```bash
 # einmalig: sqlite3 installieren
 sudo apt install sqlite3
 
-# interaktive Shell direkt auf der Datei im Volume
-sqlite3 /pfad/zum/stack/data/bookclub.sqlite
+# ganzen Ordner kopieren (inkl. -wal, sonst fehlen evtl. die neuesten Änderungen)
+docker cp bookclub:/app/data ./bookclub-snapshot
+sqlite3 ./bookclub-snapshot/bookclub.sqlite
 
 # nützliche Befehle in der Shell:
 .tables
@@ -87,31 +98,25 @@ SELECT round_id, voter_name, book_id FROM votes;
 .quit
 ```
 
-### Im laufenden Container
+### Im laufenden Container bearbeiten
+
+Das Image basiert auf Debian (`node:20-bookworm-slim`) und läuft als Benutzer `nextjs`; `sqlite3` ist nicht enthalten. Zum Installieren braucht es root (die Installation ist nach dem nächsten Redeploy wieder weg):
 
 ```bash
-# Container-Name ist im docker-compose.yml: bookclub
-docker exec -it bookclub sh
-# Im Container ist sqlite3 nicht installiert; entweder kurz nachinstallieren …
-apk add --no-cache sqlite 2>/dev/null || apt-get update && apt-get install -y sqlite3
-sqlite3 /app/data/bookclub.sqlite
-```
-
-Praktischer: einfach **eine Kopie auf den Host ziehen** und dort öffnen:
-
-```bash
-docker cp bookclub:/app/data/bookclub.sqlite ./bookclub-snapshot.sqlite
-sqlite3 ./bookclub-snapshot.sqlite
+docker exec -u root bookclub sh -c 'apt-get update && apt-get install -y sqlite3'
+# danach als normaler Benutzer öffnen, damit neue Dateien weiter `nextjs` gehören
+docker exec -it bookclub sqlite3 /app/data/bookclub.sqlite
 ```
 
 ### Mit GUI
 
-Die Datei lässt sich auch mit [DB Browser for SQLite](https://sqlitebrowser.org/) oder JetBrains DataGrip öffnen — einfach `data/bookclub.sqlite` (oder die kopierte Snapshot-Datei) als „Open database" laden.
+Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich auch mit [DB Browser for SQLite](https://sqlitebrowser.org/) oder JetBrains DataGrip öffnen — einfach als „Open database" laden.
 
 ### Wichtig: Schreibzugriff & WAL
 
-- Wenn du die Datei live editierst während die App läuft, immer **`PRAGMA journal_mode=WAL;`** beachten — daneben liegen `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Beim Backup also alle drei mitnehmen.
-- Sicherer: App kurz stoppen (`docker compose stop bookclub`), Datei bearbeiten, Container wieder starten.
+- Die Datenbank läuft im WAL-Modus — neben `bookclub.sqlite` liegen `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Beim Kopieren und Sichern also immer alle drei mitnehmen.
+- Änderungen an einer *Kopie* landen nicht in der App. Zum Bearbeiten entweder im Container arbeiten (siehe oben) oder die App stoppen (`docker stop bookclub`), die Dateien im Volume bearbeiten und wieder starten.
+- Wer direkt im Volume als root arbeitet: Neu angelegte Dateien gehören dann root und die App kann sie nicht mehr schreiben – vor dem Start `sudo chown 1001:1001 /var/lib/docker/volumes/<stackname>_bookclub_data/_data/*`.
 
 ### Tabellen-Übersicht
 

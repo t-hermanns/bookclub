@@ -22,9 +22,6 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Login fehlgeschlagen');
-      try {
-        localStorage.setItem('bc_name', selected);
-      } catch {}
       onLoggedIn();
     } catch (e: any) {
       setError(e.message);

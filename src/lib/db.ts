@@ -55,6 +55,16 @@ function init(db: Database.Database) {
       value TEXT
     );
   `);
+  // Repair rows from before finishWithWinner covered chained run-offs: an earlier run-off
+  // of a finished round was left at 'voting_closed'. Idempotent, so it simply runs on every start.
+  db.exec(`
+    UPDATE rounds SET
+      status = 'finished',
+      winner_book_id = (SELECT p.winner_book_id FROM rounds p WHERE p.id = rounds.runoff_parent_id),
+      closed_at = (SELECT p.closed_at FROM rounds p WHERE p.id = rounds.runoff_parent_id)
+    WHERE status <> 'finished'
+      AND runoff_parent_id IN (SELECT id FROM rounds WHERE status = 'finished');
+  `);
 }
 
 export function getDb(): Database.Database {
@@ -64,22 +74,4 @@ export function getDb(): Database.Database {
     global.__bookclub_db = db;
   }
   return global.__bookclub_db;
-}
-
-export function setState(key: string, value: string | null) {
-  const db = getDb();
-  if (value === null) {
-    db.prepare('DELETE FROM app_state WHERE key = ?').run(key);
-  } else {
-    db.prepare(
-      'INSERT INTO app_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value'
-    ).run(key, value);
-  }
-}
-
-export function getState(key: string): string | null {
-  const row = getDb().prepare('SELECT value FROM app_state WHERE key=?').get(key) as
-    | { value: string }
-    | undefined;
-  return row?.value ?? null;
 }

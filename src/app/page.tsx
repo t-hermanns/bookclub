@@ -6,6 +6,8 @@ import { useAppState } from '@/components/useAppState';
 import { AdminBar } from '@/components/AdminBar';
 import { BooksList, ResultCard, SubmissionCard, VotingCard } from '@/components/StageCards';
 import { ParticipationRoster } from '@/components/ParticipationRoster';
+import { DecisionNote, RunoffDetails } from '@/components/Decision';
+import type { Decision } from '@/lib/state';
 
 export default function Home() {
   const { state, refresh } = useAppState();
@@ -40,8 +42,9 @@ export default function Home() {
             <div className="card">
               <div className="text-sm text-slate-500">Letzte abgeschlossene Runde</div>
               <ResultCardInline winner={last.winner} />
+              <DecisionNote decision={last.decision} />
             </div>
-            <BooksListInline books={last.books} winnerId={last.winner?.id ?? null} />
+            <BooksListInline books={last.books} winnerId={last.winner?.id ?? null} decision={last.decision} />
           </>
         )}
 
@@ -67,7 +70,7 @@ export default function Home() {
 
         {(round?.status === 'voting_open' || round?.status === 'runoff_open') && (
           <>
-            <VotingCard state={round} userName={state.user.name} refresh={refresh} />
+            <VotingCard state={round} refresh={refresh} />
             <ParticipationRoster doneNames={round.votedNames} title="Wer hat abgestimmt?" />
           </>
         )}
@@ -104,15 +107,20 @@ function ResultCardInline({ winner }: { winner: { title: string; author: string;
 
 function BooksListInline({
   books,
-  winnerId
+  winnerId,
+  decision
 }: {
   books: { id: number; title: string; author: string; link: string; submitter?: string; votes?: number }[];
   winnerId: number | null;
+  decision: Decision;
 }) {
   if (books.length === 0) return null;
   return (
     <div className="card space-y-2">
       <h2 className="text-lg font-semibold">Alle Vorschläge der Runde</h2>
+      {decision.runoffs.length > 0 && (
+        <div className="text-sm font-medium text-slate-500">Erste Abstimmung</div>
+      )}
       <ul className="divide-y divide-slate-200 dark:divide-slate-800">
         {books.map((b) => (
           <li key={b.id} className="flex items-start justify-between gap-3 py-2">
@@ -136,6 +144,7 @@ function BooksListInline({
           </li>
         ))}
       </ul>
+      <RunoffDetails decision={decision} winnerId={winnerId} />
     </div>
   );
 }
@@ -149,7 +158,6 @@ function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'
     voting_open: 'Abstimmung läuft',
     runoff_open: 'Stichwahl läuft',
     voting_closed: 'Abstimmung beendet',
-    tied_random_pending: 'Gleichstand — Entscheidung steht aus',
     finished: 'Runde beendet'
   };
   const dot: Record<string, string> = {
@@ -158,7 +166,6 @@ function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'
     voting_open: 'bg-emerald-500',
     runoff_open: 'bg-amber-500',
     voting_closed: 'bg-slate-500',
-    tied_random_pending: 'bg-amber-500',
     finished: 'bg-emerald-600'
   };
   return (

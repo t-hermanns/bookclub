@@ -1,14 +1,12 @@
 import { getDb } from './db';
-import { PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { TOTAL_PARTICIPANTS, type Participant } from './participants';
 
 export type RoundStatus =
-  | 'idle'
   | 'suggestions_open'
   | 'suggestions_closed'
   | 'voting_open'
   | 'voting_closed'
   | 'runoff_open'
-  | 'tied_random_pending'
   | 'finished';
 
 export interface Round {
@@ -231,29 +229,18 @@ export function startRunoff(parentRoundId: number, bookIds: number[], deadlineHo
 }
 
 export function finishWithWinner(roundId: number, bookId: number) {
-  const db = getDb();
-  const now = "datetime('now')";
-  // Mark this round finished
-  db.prepare(
-    `UPDATE rounds SET status='finished', winner_book_id=?, closed_at=${now} WHERE id=?`
-  ).run(bookId, roundId);
-  // Walk up parent chain and finish all of them with the same winner
-  let cur = getRound(roundId);
-  while (cur && cur.runoff_parent_id) {
-    const parent = getRound(cur.runoff_parent_id);
-    if (!parent) break;
-    db.prepare(
-      `UPDATE rounds SET status='finished', winner_book_id=?, closed_at=${now} WHERE id=?`
-    ).run(bookId, parent.id);
-    cur = parent;
-  }
-  setActiveRoundId(null);
-}
-
-export function markTiedRandomPending(roundId: number) {
+  const round = getRound(roundId);
+  if (!round) throw new Error('Round not found');
+  // Every run-off points at the original suggestion round, so finishing that round together
+  // with all of its run-offs also covers earlier run-offs in a chain (run-off of a run-off).
+  const suggestionRoundId = round.runoff_parent_id ?? round.id;
   getDb()
-    .prepare("UPDATE rounds SET status='tied_random_pending' WHERE id=?")
-    .run(roundId);
+    .prepare(
+      `UPDATE rounds SET status='finished', winner_book_id=?, closed_at=datetime('now')
+       WHERE id=? OR runoff_parent_id=?`
+    )
+    .run(bookId, suggestionRoundId, suggestionRoundId);
+  setActiveRoundId(null);
 }
 
 export function pickRandomFrom(roundId: number, bookIds: number[]): number {
@@ -278,12 +265,7 @@ export function applyAutoTransitions(round: Round | null): Round | null {
   // Auto-close voting (or run-off) when all eligible voters have voted.
   if (round.status === 'voting_open' || round.status === 'runoff_open') {
     if (countVoters(round.id) >= eligibleVoterCount(round)) {
-      const isRunoff = !!round.runoff_parent_id;
-      getDb()
-        .prepare(
-          `UPDATE rounds SET status=? WHERE id=?`
-        )
-        .run(isRunoff ? 'voting_closed' : 'voting_closed', round.id);
+      closeVoting(round.id);
       return getRound(round.id);
     }
   }
@@ -299,9 +281,16 @@ function isoFromHours(hours: number): string {
   return new Date(ms).toISOString();
 }
 
+/** Run-off rounds of a suggestion round, oldest first. Every run-off points at the original suggestion round. */
+export function listRunoffRounds(suggestionRoundId: number): Round[] {
+  return getDb()
+    .prepare('SELECT * FROM rounds WHERE runoff_parent_id=? ORDER BY id')
+    .all(suggestionRoundId) as Round[];
+}
+
 export function listFinishedRounds(): Round[] {
   return getDb()
-    .prepare("SELECT * FROM rounds WHERE status='finished' ORDER BY closed_at DESC")
+    .prepare("SELECT * FROM rounds WHERE status='finished' ORDER BY closed_at DESC, id DESC")
     .all() as Round[];
 }
 
@@ -310,5 +299,3 @@ export function bookById(id: number): Book | null {
     (getDb().prepare('SELECT * FROM books WHERE id=?').get(id) as Book | undefined) ?? null
   );
 }
-
-export { PARTICIPANTS };

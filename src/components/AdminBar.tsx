@@ -168,8 +168,6 @@ export function AdminBar({
         />
       )}
 
-      {!round && state.lastFinishedRound && null}
-
       <ConfirmDialog
         open={!!confirm}
         title={confirm?.title ?? ''}

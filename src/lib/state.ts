@@ -9,16 +9,18 @@ import {
   getActiveRound,
   getOwnBook,
   getOwnVote,
+  listFinishedRounds,
   listRoundBooks,
   listRunoffBookIds,
+  listRunoffRounds,
   listSubmitterNames,
   listVoterNames,
+  tallyVotes,
   type Book,
   type Round,
   type RoundStatus
 } from './round';
-import { ADMIN_NAME, PARTICIPANTS, type Participant } from './participants';
-import { TOTAL_PARTICIPANTS } from './participants';
+import { ADMIN_NAME, PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
 
 export interface PublicBook {
   id: number;
@@ -47,8 +49,6 @@ export interface StateDTO {
     submittedNames: string[];
     /** Participants who have cast a vote in the current round. Does not reveal which book. */
     votedNames: string[];
-    /** Has the (current) stage's deadline passed? */
-    deadlinePassed: boolean;
     books: PublicBook[];
     ownBook: { id: number; title: string; author: string; link: string } | null;
     ownVoteBookId: number | null;
@@ -62,11 +62,37 @@ export interface StateDTO {
     closedAt: string | null;
     winner: PublicBook | null;
     books: PublicBook[];
+    decision: Decision;
   } | null;
 }
 
+/** How a finished round's winner was determined, with the results of every run-off it took. */
+export interface Decision {
+  decidedBy: 'vote' | 'runoff' | 'random';
+  runoffs: { id: number; books: PublicBook[] }[];
+}
+
+/** Only for finished (top-level) suggestion rounds: run-off tallies are revealed here. */
+export function decisionFor(round: Round): Decision {
+  const runoffRounds = listRunoffRounds(round.id);
+  const deciding = runoffRounds[runoffRounds.length - 1] ?? round;
+  // The random pick isn't stored, but it's only offered on a tie: if the deciding
+  // round is still tied, the winner was drawn.
+  const { winnerId } = determineOutcome(deciding.id, candidateBookIds(deciding));
+  const decidedBy = winnerId === null ? 'random' : runoffRounds.length > 0 ? 'runoff' : 'vote';
+  const runoffs = runoffRounds.map((r) => {
+    const tally = tallyVotes(r.id);
+    const books = listRunoffBookIds(r.id)
+      .map((id) => bookById(id))
+      .filter((b): b is Book => !!b)
+      .map((b) => ({ id: b.id, title: b.title, author: b.author, link: b.link, votes: tally.get(b.id) ?? 0 }))
+      .sort((a, b) => b.votes - a.votes);
+    return { id: r.id, books };
+  });
+  return { decidedBy, runoffs };
+}
+
 function lastFinished(): StateDTO['lastFinishedRound'] {
-  const { listFinishedRounds, listRoundBooks, tallyVotes, bookById } = require('./round') as typeof import('./round');
   const rounds = listFinishedRounds().filter((r) => !r.runoff_parent_id);
   const r = rounds[0];
   if (!r) return null;
@@ -92,10 +118,19 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
         votes: tally.get(w.id) ?? 0
       };
   }
-  return { id: r.id, closedAt: r.closed_at, winner, books };
+  return { id: r.id, closedAt: r.closed_at, winner, books, decision: decisionFor(r) };
 }
 
 export function buildState(user: Participant | null): StateDTO {
+  // Logged-out visitors only learn that they need to log in: no round, books or names.
+  if (!user) {
+    return {
+      user: { name: null, isAdmin: false },
+      totalParticipants: TOTAL_PARTICIPANTS,
+      round: null,
+      lastFinishedRound: null
+    };
+  }
   const isAdmin = user === ADMIN_NAME;
   let round: Round | null = getActiveRound();
   round = applyAutoTransitions(round);
@@ -114,8 +149,8 @@ export function buildState(user: Participant | null): StateDTO {
     : listRoundBooks(round.id);
 
   const showBooks = round.status !== 'suggestions_open';
-  const showVotes = round.status === 'voting_closed' || round.status === 'tied_random_pending' || round.status === 'finished';
-  const tally = showVotes ? countsByBook(round.id) : null;
+  const showVotes = round.status === 'voting_closed' || round.status === 'finished';
+  const tally = showVotes ? tallyVotes(round.id) : null;
 
   let publicBooks: PublicBook[] = [];
   if (showBooks) {
@@ -139,7 +174,7 @@ export function buildState(user: Participant | null): StateDTO {
 
   let winner: PublicBook | null = null;
   let tied: PublicBook[] = [];
-  if (round.status === 'voting_closed' || round.status === 'tied_random_pending') {
+  if (round.status === 'voting_closed') {
     const outcome = determineOutcome(round.id, candidates);
     if (outcome.winnerId) {
       const b = bookById(outcome.winnerId);
@@ -165,17 +200,8 @@ export function buildState(user: Participant | null): StateDTO {
 
   // Own-book ownership: own book lives in the suggestion round (the parent for runoffs).
   const submissionRoundId = round.runoff_parent_id ?? round.id;
-  const ownBook = user ? getOwnBook(submissionRoundId, user) : null;
-  const ownVote = user ? getOwnVote(round.id, user) : null;
-
-  const now = Date.now();
-  const activeDeadline =
-    round.status === 'suggestions_open'
-      ? round.suggestions_deadline
-      : round.status === 'voting_open' || round.status === 'runoff_open'
-      ? round.voting_deadline
-      : null;
-  const deadlinePassed = activeDeadline ? new Date(activeDeadline).getTime() <= now : true;
+  const ownBook = getOwnBook(submissionRoundId, user);
+  const ownVote = getOwnVote(round.id, user);
 
   // Participation is always visible by name (who has acted), but never linked to a
   // specific book or vote — that stays hidden per the rules above. Emit the names in a
@@ -200,7 +226,6 @@ export function buildState(user: Participant | null): StateDTO {
       eligibleVoterCount: eligibleVoterCount(round),
       submittedNames,
       votedNames,
-      deadlinePassed,
       books: publicBooks,
       ownBook: ownBook
         ? { id: ownBook.id, title: ownBook.title, author: ownBook.author, link: ownBook.link }
@@ -213,9 +238,4 @@ export function buildState(user: Participant | null): StateDTO {
     },
     lastFinishedRound: null
   };
-}
-
-function countsByBook(roundId: number): Map<number, number> {
-  const { tallyVotes } = require('./round') as typeof import('./round');
-  return tallyVotes(roundId);
 }

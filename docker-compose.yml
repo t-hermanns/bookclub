@@ -7,18 +7,18 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - SESSION_SECRET=${SESSION_SECRET:-please-change-me}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET muss gesetzt sein}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
     volumes:
-      # ÄNDERUNG HIER: Statt ./data nutzen wir ein Named Volume
+      # SQLite-Datenbank (inkl. -wal/-shm) im Named Volume; Backup siehe README.
       - bookclub_data:/app/data
     healthcheck:
-      # Wir nutzen ein winziges Node-Skript statt wget. Das funktioniert immer und umgeht wget/localhost-Bugs.
+      # Node-Skript statt wget (im Slim-Image nicht vorhanden); 127.0.0.1 statt localhost, weil localhost
+      # auf ::1 auflösen kann, der Server aber nur auf IPv4 (0.0.0.0) lauscht.
       test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000/', (res) => res.statusCode === 200 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5
 
-# NEUER BLOCK GANZ UNTEN:
 volumes:
   bookclub_data:
