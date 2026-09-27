@@ -8,6 +8,7 @@ import type { Decision } from '@/lib/state';
 
 interface HistoryRound {
   id: number;
+  number: number;
   closedAt: string | null;
   winner: { id: number; title: string; author: string; link: string; submitter: string; votes: number } | null;
   books: { id: number; title: string; author: string; link: string; submitter: string; votes: number }[];
@@ -52,7 +53,7 @@ export default function HistoriePage() {
         {rounds?.map((r) => (
           <div key={r.id} className="card animate-pop space-y-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold">Runde #{r.id}</h2>
+              <h2 className="text-lg font-semibold">Runde #{r.number}</h2>
               <span className="text-sm text-slate-500">{fmtDate(r.closedAt)}</span>
             </div>
             {r.winner && (
