@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
     return err('Abstimmung ist nicht offen');
 
   const body = await req.json().catch(() => ({}));
+  // The client sends the round it is showing. Optional so tabs still running an older
+  // bundle keep working; when present, a vote meant for an earlier round is rejected.
+  const roundId = (body as any).roundId;
+  if (roundId !== undefined && Number(roundId) !== round.id)
+    return err('Die Abstimmung hat inzwischen gewechselt – bitte stimme noch einmal ab.', 409);
   const bookId = Number((body as any).bookId);
   if (!Number.isInteger(bookId)) return err('Ungültige Buchwahl');
 

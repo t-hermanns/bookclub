@@ -138,9 +138,8 @@ export function VotingCard({
   refresh
 }: {
   state: NonNullable<StateDTO['round']>;
-  refresh: () => void;
+  refresh: () => Promise<void>;
 }) {
-  const [chosen, setChosen] = useState<number | null>(state.ownVoteBookId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,17 +154,19 @@ export function VotingCard({
       const res = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId })
+        // The round this card shows: if the admin has moved on (e.g. straight into a run-off),
+        // the server rejects the vote instead of counting it for a round not seen yet.
+        body: JSON.stringify({ roundId: state.id, bookId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Stimme nicht gespeichert');
-      setChosen(bookId);
-      refresh();
     } catch (e: any) {
       setError(e.message);
-    } finally {
-      setBusy(false);
     }
+    // The selection is read back from the server (no local copy that could outlive the round);
+    // after a rejected vote this also brings up the round that is open now.
+    await refresh().catch(() => {});
+    setBusy(false);
   }
 
   return (
@@ -186,7 +187,7 @@ export function VotingCard({
         {state.books.map((b) => {
           const isOwn = b.id === ownBookId;
           const disallowOwn = isOwn && !isRunoff;
-          const selected = chosen === b.id;
+          const selected = state.ownVoteBookId === b.id;
           return (
             <li key={b.id}>
               <div
