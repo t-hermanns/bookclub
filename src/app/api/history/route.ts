@@ -1,9 +1,11 @@
-import { ok } from '@/lib/api';
+import { ok, requireUser } from '@/lib/api';
 import { bookById, listFinishedRounds, listRoundBooks, tallyVotes } from '@/lib/round';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const u = requireUser();
+  if (u instanceof Response) return u;
   const rounds = listFinishedRounds();
   const data = rounds.map((r) => {
     const books = r.runoff_parent_id ? [] : listRoundBooks(r.id);

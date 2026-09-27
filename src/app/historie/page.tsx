@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { fmtDate } from '@/components/Countdown';
 
@@ -14,11 +15,14 @@ interface HistoryRound {
 export default function HistoriePage() {
   const [rounds, setRounds] = useState<HistoryRound[] | null>(null);
   const [user, setUser] = useState<{ name: string | null; isAdmin: boolean }>({ name: null, isAdmin: false });
+  const [loggedOut, setLoggedOut] = useState(false);
 
   useEffect(() => {
-    fetch('/api/history')
-      .then((r) => r.json())
-      .then((d) => setRounds(d.rounds));
+    fetch('/api/history').then(async (r) => {
+      if (r.status === 401) return setLoggedOut(true);
+      const d = await r.json();
+      setRounds(d.rounds);
+    });
     fetch('/api/state')
       .then((r) => r.json())
       .then((d) => setUser(d.user));
@@ -32,7 +36,16 @@ export default function HistoriePage() {
       />
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:py-8">
         <h1 className="text-2xl font-semibold">Historie</h1>
-        {!rounds && <div className="text-slate-500">Lädt …</div>}
+        {loggedOut && (
+          <div className="card">
+            Bitte{' '}
+            <Link href="/" className="text-brand-600 hover:underline">
+              melde dich zuerst an
+            </Link>
+            , um die Historie zu sehen.
+          </div>
+        )}
+        {!rounds && !loggedOut && <div className="text-slate-500">Lädt …</div>}
         {rounds && rounds.length === 0 && <div className="card">Noch keine abgeschlossenen Runden.</div>}
         {rounds?.filter((r) => !r.isRunoff).map((r) => (
           <div key={r.id} className="card animate-pop space-y-3">

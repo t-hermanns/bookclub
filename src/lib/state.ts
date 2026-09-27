@@ -96,6 +96,15 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
 }
 
 export function buildState(user: Participant | null): StateDTO {
+  // Logged-out visitors only learn that they need to log in: no round, books or names.
+  if (!user) {
+    return {
+      user: { name: null, isAdmin: false },
+      totalParticipants: TOTAL_PARTICIPANTS,
+      round: null,
+      lastFinishedRound: null
+    };
+  }
   const isAdmin = user === ADMIN_NAME;
   let round: Round | null = getActiveRound();
   round = applyAutoTransitions(round);
