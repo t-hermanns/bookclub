@@ -49,4 +49,4 @@ Next.js 14 App Router (TypeScript, Tailwind). All server logic lives in route ha
 
 ## Deployment
 
-Multi-stage `Dockerfile` producing a Next standalone image; `better-sqlite3` is compiled during `npm ci` (build deps present in the `deps` stage), so it builds natively on the target arch (e.g. arm64). `docker-compose.yml` mounts `./data:/app/data`. See `README.md` for the Portainer setup and instructions for inspecting the SQLite file directly.
+Multi-stage `Dockerfile` producing a Next standalone image; `better-sqlite3` is compiled during `npm ci` (build deps present in the `deps` stage), so it builds natively on the target arch (e.g. arm64). `docker-compose.yml` stores `/app/data` in the named volume `bookclub_data` (Compose prefixes the project/stack name, e.g. `bookclub_bookclub_data`). See `README.md` for the Portainer setup and instructions for inspecting the SQLite file directly.
