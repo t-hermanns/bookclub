@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!round) return err('Keine Abstimmung aktiv');
   if (round.status !== 'voting_open' && round.status !== 'runoff_open')
     return err('Abstimmung ist nicht offen');
-  // The admin may close at any time (the deadline is only a fallback for auto-close);
+  // The admin may close at any time: the deadline is informational only and never closes a stage;
   // an incomplete tally still needs force=true as a confirmation.
   const body = await req.json().catch(() => ({}));
   const force = !!(body as any).force;

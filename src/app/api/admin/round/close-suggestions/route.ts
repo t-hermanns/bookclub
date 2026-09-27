@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   round = applyAutoTransitions(round);
   if (!round || round.status !== 'suggestions_open')
     return err('Vorschläge sind nicht offen');
-  // The admin may close at any time (the deadline is only a fallback for auto-close);
+  // The admin may close at any time: the deadline is informational only and never closes a stage;
   // an incomplete tally still needs force=true as a confirmation.
   const body = await req.json().catch(() => ({}));
   const force = !!(body as any).force;
