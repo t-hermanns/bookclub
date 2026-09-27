@@ -229,22 +229,17 @@ export function startRunoff(parentRoundId: number, bookIds: number[], deadlineHo
 }
 
 export function finishWithWinner(roundId: number, bookId: number) {
-  const db = getDb();
-  const now = "datetime('now')";
-  // Mark this round finished
-  db.prepare(
-    `UPDATE rounds SET status='finished', winner_book_id=?, closed_at=${now} WHERE id=?`
-  ).run(bookId, roundId);
-  // Walk up parent chain and finish all of them with the same winner
-  let cur = getRound(roundId);
-  while (cur && cur.runoff_parent_id) {
-    const parent = getRound(cur.runoff_parent_id);
-    if (!parent) break;
-    db.prepare(
-      `UPDATE rounds SET status='finished', winner_book_id=?, closed_at=${now} WHERE id=?`
-    ).run(bookId, parent.id);
-    cur = parent;
-  }
+  const round = getRound(roundId);
+  if (!round) throw new Error('Round not found');
+  // Every run-off points at the original suggestion round, so finishing that round together
+  // with all of its run-offs also covers earlier run-offs in a chain (run-off of a run-off).
+  const suggestionRoundId = round.runoff_parent_id ?? round.id;
+  getDb()
+    .prepare(
+      `UPDATE rounds SET status='finished', winner_book_id=?, closed_at=datetime('now')
+       WHERE id=? OR runoff_parent_id=?`
+    )
+    .run(bookId, suggestionRoundId, suggestionRoundId);
   setActiveRoundId(null);
 }
 

@@ -55,6 +55,16 @@ function init(db: Database.Database) {
       value TEXT
     );
   `);
+  // Repair rows from before finishWithWinner covered chained run-offs: an earlier run-off
+  // of a finished round was left at 'voting_closed'. Idempotent, so it simply runs on every start.
+  db.exec(`
+    UPDATE rounds SET
+      status = 'finished',
+      winner_book_id = (SELECT p.winner_book_id FROM rounds p WHERE p.id = rounds.runoff_parent_id),
+      closed_at = (SELECT p.closed_at FROM rounds p WHERE p.id = rounds.runoff_parent_id)
+    WHERE status <> 'finished'
+      AND runoff_parent_id IN (SELECT id FROM rounds WHERE status = 'finished');
+  `);
 }
 
 export function getDb(): Database.Database {
