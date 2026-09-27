@@ -325,8 +325,8 @@ function PointsBallot({
 function BallotStatus({ total, left }: { total: number; left: number }) {
   const done = left === 0;
   const text = done
-    ? `Alle ${total} Stimmen vergeben`
-    : `Bitte noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} vergeben`;
+    ? 'Alle Stimmen vergeben'
+    : `Bitte noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} abgeben`;
   return (
     <div
       role="status"
