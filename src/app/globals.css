@@ -30,22 +30,22 @@ body {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-50 active:translate-y-px;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-50 active:translate-y-px;
   }
   .btn-primary {
-    @apply btn bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-brand-700/20 hover:shadow-md hover:shadow-brand-700/30 focus:ring-brand-500;
+    @apply btn bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-brand-700/20 hover:shadow-md hover:shadow-brand-700/30 focus-visible:ring-brand-500;
   }
   .btn-secondary {
-    @apply btn bg-slate-200/80 text-slate-900 hover:bg-slate-200 focus:ring-slate-400;
+    @apply btn bg-slate-200/80 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400;
   }
   .dark .btn-secondary {
     @apply bg-slate-800/80 text-slate-100 hover:bg-slate-800;
   }
   .btn-danger {
-    @apply btn bg-gradient-to-br from-red-500 to-red-700 text-white hover:shadow-md focus:ring-red-500;
+    @apply btn bg-gradient-to-br from-red-500 to-red-700 text-white hover:shadow-md focus-visible:ring-red-500;
   }
   .btn-ghost {
-    @apply btn bg-transparent text-slate-700 shadow-none hover:bg-slate-200/70 focus:ring-slate-400;
+    @apply btn bg-transparent text-slate-700 shadow-none hover:bg-slate-200/70 focus-visible:ring-slate-400;
   }
   .dark .btn-ghost {
     @apply text-slate-200 hover:bg-slate-800/60;

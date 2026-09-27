@@ -7,8 +7,8 @@ import {
   determineOutcome,
   eligibleVoterCount,
   getActiveRound,
+  getOwnBallot,
   getOwnBook,
-  getOwnVote,
   listFinishedRounds,
   listRoundBooks,
   listRunoffBookIds,
@@ -16,11 +16,13 @@ import {
   listSubmitterNames,
   listVoterNames,
   tallyVotes,
+  votesPerVoter,
   type Book,
   type Round,
   type RoundStatus
 } from './round';
 import { ADMIN_NAME, PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { configuredVotingSystem, type BallotEntry, type VotingSystem } from './voting';
 
 export interface PublicBook {
   id: number;
@@ -34,15 +36,20 @@ export interface PublicBook {
 export interface StateDTO {
   user: { name: Participant | null; isAdmin: boolean };
   totalParticipants: number;
+  /** System a round started now would use (shown to the admin); null if VOTING_SYSTEM is invalid. */
+  newRoundVotingSystem: VotingSystem | null;
   round: {
     id: number;
     status: RoundStatus;
     suggestionsDeadline: string | null;
     votingDeadline: string | null;
     isRunoff: boolean;
+    votingSystem: VotingSystem;
+    /** Votes each ballot must add up to (1 for 'single' and in run-offs). */
+    votesPerVoter: number;
     /** Number of submissions (always visible). */
     submittedCount: number;
-    /** Number of votes cast (always visible). */
+    /** Number of people who have voted (always visible). */
     voterCount: number;
     eligibleVoterCount: number;
     /** Participants who have submitted a book in the submission round. Anonymous which book. */
@@ -51,7 +58,8 @@ export interface StateDTO {
     votedNames: string[];
     books: PublicBook[];
     ownBook: { id: number; title: string; author: string; link: string } | null;
-    ownVoteBookId: number | null;
+    /** The user's own ballot in this round (points per book); empty until they vote. */
+    ownBallot: BallotEntry[];
     canVoteOwnBook: boolean; // true in run-offs
     winner: PublicBook | null;
     tied: PublicBook[]; // when voting_closed/tied
@@ -63,6 +71,7 @@ export interface StateDTO {
     winner: PublicBook | null;
     books: PublicBook[];
     decision: Decision;
+    votingSystem: VotingSystem;
   } | null;
 }
 
@@ -118,7 +127,14 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
         votes: tally.get(w.id) ?? 0
       };
   }
-  return { id: r.id, closedAt: r.closed_at, winner, books, decision: decisionFor(r) };
+  return {
+    id: r.id,
+    closedAt: r.closed_at,
+    winner,
+    books,
+    decision: decisionFor(r),
+    votingSystem: r.voting_system
+  };
 }
 
 export function buildState(user: Participant | null): StateDTO {
@@ -127,6 +143,7 @@ export function buildState(user: Participant | null): StateDTO {
     return {
       user: { name: null, isAdmin: false },
       totalParticipants: TOTAL_PARTICIPANTS,
+      newRoundVotingSystem: configuredVotingSystem(),
       round: null,
       lastFinishedRound: null
     };
@@ -138,6 +155,7 @@ export function buildState(user: Participant | null): StateDTO {
     return {
       user: { name: user, isAdmin },
       totalParticipants: TOTAL_PARTICIPANTS,
+      newRoundVotingSystem: configuredVotingSystem(),
       round: null,
       lastFinishedRound: lastFinished()
     };
@@ -201,7 +219,7 @@ export function buildState(user: Participant | null): StateDTO {
   // Own-book ownership: own book lives in the suggestion round (the parent for runoffs).
   const submissionRoundId = round.runoff_parent_id ?? round.id;
   const ownBook = getOwnBook(submissionRoundId, user);
-  const ownVote = getOwnVote(round.id, user);
+  const ownBallot = getOwnBallot(round.id, user);
 
   // Participation is always visible by name (who has acted), but never linked to a
   // specific book or vote — that stays hidden per the rules above. Emit the names in a
@@ -215,12 +233,15 @@ export function buildState(user: Participant | null): StateDTO {
   return {
     user: { name: user, isAdmin },
     totalParticipants: TOTAL_PARTICIPANTS,
+    newRoundVotingSystem: configuredVotingSystem(),
     round: {
       id: round.id,
       status: round.status,
       suggestionsDeadline: round.suggestions_deadline,
       votingDeadline: round.voting_deadline,
       isRunoff,
+      votingSystem: round.voting_system,
+      votesPerVoter: votesPerVoter(round),
       submittedCount: countSubmitters(submissionRoundId),
       voterCount: countVoters(round.id),
       eligibleVoterCount: eligibleVoterCount(round),
@@ -230,7 +251,7 @@ export function buildState(user: Participant | null): StateDTO {
       ownBook: ownBook
         ? { id: ownBook.id, title: ownBook.title, author: ownBook.author, link: ownBook.link }
         : null,
-      ownVoteBookId: ownVote?.book_id ?? null,
+      ownBallot,
       canVoteOwnBook: isRunoff,
       winner,
       tied,

@@ -9,6 +9,8 @@ services:
     environment:
       - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET muss gesetzt sein}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
+      # Abstimmungssystem für neue Runden: single (1 Stimme) oder three_votes (3 Stimmen)
+      - VOTING_SYSTEM=${VOTING_SYSTEM:-single}
     volumes:
       # SQLite-Datenbank (inkl. -wal/-shm) im Named Volume; Backup siehe README.
       - bookclub_data:/app/data

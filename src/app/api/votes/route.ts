@@ -1,14 +1,31 @@
 import { NextRequest } from 'next/server';
 import { err, ok, requireUser } from '@/lib/api';
-import { getDb } from '@/lib/db';
 import {
   applyAutoTransitions,
   bookById,
   candidateBookIds,
-  getActiveRound
+  castBallot,
+  getActiveRound,
+  votesPerVoter
 } from '@/lib/round';
+import type { BallotEntry } from '@/lib/voting';
 
 export const dynamic = 'force-dynamic';
+
+/** `{ ballot: [{ bookId, points }] }`, or the single-vote form `{ bookId }` (one point). */
+function parseBallot(body: any): BallotEntry[] | null {
+  if (Array.isArray(body?.ballot)) {
+    const entries = (body.ballot as any[]).map((e) => ({
+      bookId: Number(e?.bookId),
+      points: Number(e?.points)
+    }));
+    const valid = entries.every((e) => Number.isInteger(e.bookId) && Number.isInteger(e.points) && e.points > 0);
+    const distinct = new Set(entries.map((e) => e.bookId)).size === entries.length;
+    return valid && distinct ? entries : null;
+  }
+  const bookId = Number(body?.bookId);
+  return Number.isInteger(bookId) ? [{ bookId, points: 1 }] : null;
+}
 
 export async function POST(req: NextRequest) {
   const u = requireUser();
@@ -26,26 +43,27 @@ export async function POST(req: NextRequest) {
   const roundId = (body as any).roundId;
   if (roundId !== undefined && Number(roundId) !== round.id)
     return err('Die Abstimmung hat inzwischen gewechselt – bitte stimme noch einmal ab.', 409);
-  const bookId = Number((body as any).bookId);
-  if (!Number.isInteger(bookId)) return err('Ungültige Buchwahl');
+
+  const ballot = parseBallot(body);
+  if (!ballot || ballot.length === 0) return err('Ungültige Buchwahl');
+  const needed = votesPerVoter(round);
+  const total = ballot.reduce((sum, e) => sum + e.points, 0);
+  if (total !== needed)
+    return err(needed === 1 ? 'Ungültige Buchwahl' : `Bitte vergib genau ${needed} Stimmen.`);
 
   const candidates = candidateBookIds(round);
-  if (!candidates.includes(bookId)) return err('Dieses Buch steht nicht zur Wahl');
-
-  const book = bookById(bookId);
-  if (!book) return err('Buch nicht gefunden');
-
-  // Disallow voting for own book outside run-offs.
   const isRunoff = !!round.runoff_parent_id;
-  if (!isRunoff && book.submitter_name === u) {
-    return err('Du kannst nicht für dein eigenes Buch stimmen');
+  for (const { bookId } of ballot) {
+    if (!candidates.includes(bookId)) return err('Dieses Buch steht nicht zur Wahl');
+    const book = bookById(bookId);
+    if (!book) return err('Buch nicht gefunden');
+    // Disallow voting for own book outside run-offs.
+    if (!isRunoff && book.submitter_name === u) {
+      return err('Du kannst nicht für dein eigenes Buch stimmen');
+    }
   }
 
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO votes(round_id, voter_name, book_id) VALUES(?,?,?)
-     ON CONFLICT(round_id, voter_name) DO UPDATE SET book_id=excluded.book_id, created_at=datetime('now')`
-  ).run(round.id, u, bookId);
+  castBallot(round.id, u, ballot);
 
   // Trigger lazy auto-close check.
   applyAutoTransitions(getActiveRound());

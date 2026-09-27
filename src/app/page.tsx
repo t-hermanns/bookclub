@@ -8,6 +8,7 @@ import { BooksList, ResultCard, SubmissionCard, VotingCard } from '@/components/
 import { ParticipationRoster } from '@/components/ParticipationRoster';
 import { DecisionNote, RunoffDetails } from '@/components/Decision';
 import type { Decision } from '@/lib/state';
+import { votingSystemLabel } from '@/lib/voting';
 
 export default function Home() {
   const { state, refresh } = useAppState();
@@ -40,7 +41,9 @@ export default function Home() {
         {!round && last && (
           <>
             <div className="card">
-              <div className="text-sm text-slate-500">Letzte abgeschlossene Runde</div>
+              <div className="text-sm text-slate-500">
+                Letzte abgeschlossene Runde · {votingSystemLabel(last.votingSystem)}
+              </div>
               <ResultCardInline winner={last.winner} />
               <DecisionNote decision={last.decision} />
             </div>
@@ -174,9 +177,13 @@ function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'
         <span className={`stage-dot ${dot[r.status] ?? 'bg-slate-400'} shadow-[0_0_0_4px_rgba(0,0,0,0.04)]`} />
         {labels[r.status] ?? r.status}
       </div>
-      {r.isRunoff && (
+      {r.isRunoff ? (
         <span className="pill bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-          Stichwahl
+          Stichwahl · 1 Stimme
+        </span>
+      ) : (
+        <span className="pill bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          {votingSystemLabel(r.votingSystem)}
         </span>
       )}
     </div>

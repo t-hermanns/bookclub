@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
-import type { StateDTO } from '@/lib/state';
+import { useRef, useState } from 'react';
+import type { PublicBook, StateDTO } from '@/lib/state';
+import type { BallotEntry } from '@/lib/voting';
 import { Countdown } from './Countdown';
 
 export function SubmissionCard({
@@ -147,19 +148,21 @@ export function VotingCard({
   const isRunoff = state.isRunoff;
   const ownInRunoff = isRunoff && ownBookId !== null && state.runoffBookIds.includes(ownBookId);
 
-  async function vote(bookId: number) {
+  async function submit(ballot: BallotEntry[]): Promise<boolean> {
     setBusy(true);
     setError(null);
+    let saved = false;
     try {
       const res = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // The round this card shows: if the admin has moved on (e.g. straight into a run-off),
         // the server rejects the vote instead of counting it for a round not seen yet.
-        body: JSON.stringify({ roundId: state.id, bookId })
+        body: JSON.stringify({ roundId: state.id, ballot })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Stimme nicht gespeichert');
+      saved = true;
     } catch (e: any) {
       setError(e.message);
     }
@@ -167,6 +170,7 @@ export function VotingCard({
     // after a rejected vote this also brings up the round that is open now.
     await refresh().catch(() => {});
     setBusy(false);
+    return saved;
   }
 
   return (
@@ -183,59 +187,222 @@ export function VotingCard({
         </div>
       )}
       {error && <div className="banner-warn">{error}</div>}
+      {state.votesPerVoter > 1 ? (
+        // Keyed by round so an unsaved allocation never carries over into another round.
+        <PointsBallot key={state.id} state={state} onSave={submit} />
+      ) : (
+        <ul className="space-y-2">
+          {state.books.map((b) => {
+            const disallowOwn = b.id === ownBookId && !isRunoff;
+            const selected = state.ownBallot.some((e) => e.bookId === b.id);
+            return (
+              <VoteRow
+                key={b.id}
+                book={b}
+                highlighted={selected}
+                dimmed={disallowOwn}
+                note={disallowOwn ? 'Eigenes Buch — nicht wählbar' : null}
+              >
+                {!disallowOwn &&
+                  (selected ? (
+                    <span className="flex items-center justify-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow sm:shrink-0 sm:py-1.5">
+                      ✓ Deine Stimme
+                    </span>
+                  ) : (
+                    <button
+                      className="btn-primary justify-center sm:shrink-0"
+                      disabled={busy}
+                      onClick={() => submit([{ bookId: b.id, points: 1 }])}
+                    >
+                      Abstimmen
+                    </button>
+                  ))}
+              </VoteRow>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Ballot for systems with several votes per person: +/- per book, saved automatically as soon as
+ * all votes are placed. An incomplete allocation is never sent: while someone rearranges their
+ * votes, the previously saved (complete) ballot keeps counting.
+ */
+function PointsBallot({
+  state,
+  onSave
+}: {
+  state: NonNullable<StateDTO['round']>;
+  onSave: (ballot: BallotEntry[]) => Promise<boolean>;
+}) {
+  const total = state.votesPerVoter;
+  const ownBookId = state.ownBook?.id ?? null;
+  const saved = new Map(state.ownBallot.map((e) => [e.bookId, e.points]));
+  // The allocation on screen while it differs from the server (being saved, or incomplete);
+  // null shows the saved ballot.
+  const [draft, setDraft] = useState<Map<number, number> | null>(null);
+  const current = draft ?? saved;
+  const left = total - pointsOf(current);
+
+  // One save at a time; a ballot completed meanwhile is sent right after.
+  const inFlight = useRef(false);
+  const queued = useRef<Map<number, number> | null>(null);
+
+  function change(bookId: number, delta: number) {
+    const next = new Map(current);
+    const n = (next.get(bookId) ?? 0) + delta;
+    if (n > 0) next.set(bookId, n);
+    else next.delete(bookId);
+    setDraft(next);
+    if (pointsOf(next) !== total) return; // incomplete: keep it local, the saved ballot still counts
+    // Back to what the server has: nothing to send (unless a different ballot is still being saved).
+    if (!inFlight.current && sameBallot(next, saved)) return setDraft(null);
+    queued.current = next;
+    if (!inFlight.current) void flush();
+  }
+
+  async function flush() {
+    const next = queued.current;
+    queued.current = null;
+    if (!next) return;
+    inFlight.current = true;
+    const ok = await onSave(Array.from(next, ([bookId, points]) => ({ bookId, points })));
+    inFlight.current = false;
+    if (queued.current) return flush();
+    // Saved: show it from the server again, unless the user has changed it meanwhile.
+    // Failed: fall back to what the server has (the error is shown above).
+    setDraft((d) => (!ok || (d && sameBallot(d, next)) ? null : d));
+  }
+
+  return (
+    <>
       <ul className="space-y-2">
         {state.books.map((b) => {
-          const isOwn = b.id === ownBookId;
-          const disallowOwn = isOwn && !isRunoff;
-          const selected = state.ownVoteBookId === b.id;
+          const disallowOwn = b.id === ownBookId && !state.isRunoff;
+          const n = current.get(b.id) ?? 0;
           return (
-            <li key={b.id}>
-              <div
-                className={`rounded-xl border p-3 transition ${
-                  selected
-                    ? 'border-brand-500 bg-gradient-to-br from-brand-50 to-brand-100 ring-2 ring-brand-400/40 dark:from-brand-700/30 dark:to-brand-700/10'
-                    : 'border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/50'
-                } ${disallowOwn ? 'opacity-50' : ''}`}
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <div className="min-w-0">
-                    <div className="font-medium">{b.title}</div>
-                    <div className="text-sm text-slate-500">von {b.author}</div>
-                    <a
-                      className="block break-words text-sm text-brand-600 hover:underline"
-                      href={b.link}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {b.link}
-                    </a>
-                    {disallowOwn && (
-                      <div className="text-xs text-slate-500">
-                        Eigenes Buch — nicht wählbar
-                      </div>
-                    )}
-                  </div>
-                  {!disallowOwn &&
-                    (selected ? (
-                      <span className="flex items-center justify-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow sm:shrink-0 sm:py-1.5">
-                        ✓ Deine Stimme
-                      </span>
-                    ) : (
-                      <button
-                        className="btn-primary justify-center sm:shrink-0"
-                        disabled={busy}
-                        onClick={() => vote(b.id)}
-                      >
-                        Abstimmen
-                      </button>
-                    ))}
+            <VoteRow
+              key={b.id}
+              book={b}
+              highlighted={n > 0}
+              dimmed={disallowOwn}
+              note={disallowOwn ? 'Eigenes Buch — nicht wählbar' : null}
+            >
+              {!disallowOwn && (
+                <div className="flex items-center gap-2 self-start sm:shrink-0 sm:self-center">
+                  <button
+                    className="btn-secondary h-9 w-9 px-0 py-0 text-lg"
+                    aria-label={`Eine Stimme weniger für ${b.title}`}
+                    disabled={n === 0}
+                    onClick={() => change(b.id, -1)}
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center text-lg font-semibold tabular-nums">{n}</span>
+                  <button
+                    className="btn-secondary h-9 w-9 px-0 py-0 text-lg"
+                    aria-label={`Eine Stimme mehr für ${b.title}`}
+                    disabled={left === 0}
+                    onClick={() => change(b.id, 1)}
+                  >
+                    +
+                  </button>
                 </div>
-              </div>
-            </li>
+              )}
+            </VoteRow>
           );
         })}
       </ul>
+      <BallotStatus total={total} left={left} />
+    </>
+  );
+}
+
+/** Sticky bar at the bottom of the ballot: how many votes are placed (dots) and how many are left. */
+function BallotStatus({ total, left }: { total: number; left: number }) {
+  const done = left === 0;
+  const text = done
+    ? 'Alle Stimmen vergeben'
+    : `Bitte noch ${left} ${left === 1 ? 'Stimme' : 'Stimmen'} vergeben`;
+  return (
+    <div
+      role="status"
+      className={`sticky bottom-3 z-10 flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm shadow-lg backdrop-blur ${
+        done
+          ? 'border-emerald-300 bg-emerald-50/95 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100'
+          : 'border-slate-200 bg-white/95 text-slate-700 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200'
+      }`}
+    >
+      <div className="flex shrink-0 gap-1.5" aria-hidden>
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            className={`h-3 w-3 rounded-full border-2 ${
+              i < total - left
+                ? done
+                  ? 'border-emerald-600 bg-emerald-600'
+                  : 'border-brand-600 bg-brand-600'
+                : 'border-slate-300 dark:border-slate-600'
+            }`}
+          />
+        ))}
+      </div>
+      <div className="font-medium">{text}</div>
     </div>
+  );
+}
+
+function pointsOf(ballot: Map<number, number>): number {
+  return Array.from(ballot.values()).reduce((sum, n) => sum + n, 0);
+}
+
+function sameBallot(a: Map<number, number>, b: Map<number, number>): boolean {
+  return a.size === b.size && Array.from(a).every(([id, n]) => b.get(id) === n);
+}
+
+function VoteRow({
+  book,
+  highlighted,
+  dimmed,
+  note,
+  children
+}: {
+  book: PublicBook;
+  highlighted: boolean;
+  dimmed: boolean;
+  note: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <li>
+      <div
+        className={`rounded-xl border p-3 transition ${
+          highlighted
+            ? 'border-brand-500 bg-gradient-to-br from-brand-50 to-brand-100 ring-2 ring-brand-400/40 dark:from-brand-700/30 dark:to-brand-700/10'
+            : 'border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/50'
+        } ${dimmed ? 'opacity-50' : ''}`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="min-w-0">
+            <div className="font-medium">{book.title}</div>
+            <div className="text-sm text-slate-500">von {book.author}</div>
+            <a
+              className="block break-words text-sm text-brand-600 hover:underline"
+              href={book.link}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {book.link}
+            </a>
+            {note && <div className="text-xs text-slate-500">{note}</div>}
+          </div>
+          {children}
+        </div>
+      </div>
+    </li>
   );
 }
 

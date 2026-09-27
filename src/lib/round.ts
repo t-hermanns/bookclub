@@ -1,5 +1,6 @@
 import { getDb } from './db';
 import { TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { VOTING_SYSTEMS, type BallotEntry, type VotingSystem } from './voting';
 
 export type RoundStatus =
   | 'suggestions_open'
@@ -18,6 +19,7 @@ export interface Round {
   created_at: string;
   closed_at: string | null;
   winner_book_id: number | null;
+  voting_system: VotingSystem;
 }
 
 export interface Book {
@@ -29,14 +31,6 @@ export interface Book {
   submitter_name: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface Vote {
-  id: number;
-  round_id: number;
-  voter_name: string;
-  book_id: number;
-  created_at: string;
 }
 
 const ACTIVE_KEY = 'active_round_id';
@@ -78,10 +72,6 @@ export function listRunoffBookIds(roundId: number): number[] {
   ).map((r) => r.book_id);
 }
 
-export function listVotes(roundId: number): Vote[] {
-  return getDb().prepare('SELECT * FROM votes WHERE round_id=?').all(roundId) as Vote[];
-}
-
 export function countSubmitters(roundId: number): number {
   return (
     getDb().prepare('SELECT COUNT(*) AS c FROM books WHERE round_id=?').get(roundId) as {
@@ -92,7 +82,7 @@ export function countSubmitters(roundId: number): number {
 
 export function countVoters(roundId: number): number {
   return (
-    getDb().prepare('SELECT COUNT(*) AS c FROM votes WHERE round_id=?').get(roundId) as {
+    getDb().prepare('SELECT COUNT(DISTINCT voter_name) AS c FROM votes WHERE round_id=?').get(roundId) as {
       c: number;
     }
   ).c;
@@ -111,14 +101,15 @@ export function listSubmitterNames(roundId: number): string[] {
 export function listVoterNames(roundId: number): string[] {
   return (
     getDb()
-      .prepare('SELECT voter_name FROM votes WHERE round_id=?')
+      .prepare('SELECT DISTINCT voter_name FROM votes WHERE round_id=?')
       .all(roundId) as { voter_name: string }[]
   ).map((r) => r.voter_name);
 }
 
+/** Votes per book: the sum of the points every voter gave it. */
 export function tallyVotes(roundId: number): Map<number, number> {
   const rows = getDb()
-    .prepare('SELECT book_id, COUNT(*) AS c FROM votes WHERE round_id=? GROUP BY book_id')
+    .prepare('SELECT book_id, SUM(points) AS c FROM votes WHERE round_id=? GROUP BY book_id')
     .all(roundId) as { book_id: number; c: number }[];
   return new Map(rows.map((r) => [r.book_id, r.c]));
 }
@@ -136,26 +127,40 @@ export function getOwnBook(roundId: number, name: Participant): Book | null {
   );
 }
 
-export function getOwnVote(roundId: number, name: Participant): Vote | null {
-  return (
-    (getDb()
-      .prepare('SELECT * FROM votes WHERE round_id=? AND voter_name=?')
-      .get(roundId, name) as Vote | undefined) ?? null
-  );
+/** Votes a ballot must add up to in this round (run-offs are always 'single'). */
+export function votesPerVoter(round: Round): number {
+  return VOTING_SYSTEMS[round.voting_system]?.votesPerVoter ?? 1;
+}
+
+export function getOwnBallot(roundId: number, name: Participant): BallotEntry[] {
+  return getDb()
+    .prepare('SELECT book_id AS bookId, points FROM votes WHERE round_id=? AND voter_name=? ORDER BY book_id')
+    .all(roundId, name) as BallotEntry[];
+}
+
+/** Replace the voter's whole ballot. Callers validate it against the round first. */
+export function castBallot(roundId: number, name: Participant, ballot: BallotEntry[]) {
+  const db = getDb();
+  const del = db.prepare('DELETE FROM votes WHERE round_id=? AND voter_name=?');
+  const ins = db.prepare('INSERT INTO votes(round_id, voter_name, book_id, points) VALUES(?,?,?,?)');
+  db.transaction(() => {
+    del.run(roundId, name);
+    for (const e of ballot) ins.run(roundId, name, e.bookId, e.points);
+  })();
 }
 
 /* ============================================================
  * Lifecycle transitions
  * ============================================================ */
 
-export function startNewRound(deadlineHours: number): Round {
+export function startNewRound(deadlineHours: number, votingSystem: VotingSystem): Round {
   const db = getDb();
   const deadline = isoFromHours(deadlineHours);
   const result = db
     .prepare(
-      `INSERT INTO rounds(status, suggestions_deadline) VALUES('suggestions_open', ?)`
+      `INSERT INTO rounds(status, suggestions_deadline, voting_system) VALUES('suggestions_open', ?, ?)`
     )
-    .run(deadline);
+    .run(deadline, votingSystem);
   const id = Number(result.lastInsertRowid);
   setActiveRoundId(id);
   return getRound(id)!;
@@ -215,9 +220,10 @@ export function startRunoff(parentRoundId: number, bookIds: number[], deadlineHo
     cur = getRound(cur.runoff_parent_id);
     if (cur) suggestionRoundId = cur.id;
   }
+  // Run-offs are always a simple majority (one vote each), whatever system the main vote used.
   const result = db
     .prepare(
-      `INSERT INTO rounds(status, voting_deadline, runoff_parent_id) VALUES('runoff_open', ?, ?)`
+      `INSERT INTO rounds(status, voting_deadline, runoff_parent_id, voting_system) VALUES('runoff_open', ?, ?, 'single')`
     )
     .run(deadline, suggestionRoundId);
   const id = Number(result.lastInsertRowid);
