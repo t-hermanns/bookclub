@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { fmtDate } from '@/components/Countdown';
+import { DecisionNote, RunoffDetails } from '@/components/Decision';
+import type { Decision } from '@/lib/state';
 
 interface HistoryRound {
   id: number;
   closedAt: string | null;
-  isRunoff: boolean;
   winner: { id: number; title: string; author: string; link: string; submitter: string; votes: number } | null;
   books: { id: number; title: string; author: string; link: string; submitter: string; votes: number }[];
+  decision: Decision;
 }
 
 export default function HistoriePage() {
@@ -47,7 +49,7 @@ export default function HistoriePage() {
         )}
         {!rounds && !loggedOut && <div className="text-slate-500">Lädt …</div>}
         {rounds && rounds.length === 0 && <div className="card">Noch keine abgeschlossenen Runden.</div>}
-        {rounds?.filter((r) => !r.isRunoff).map((r) => (
+        {rounds?.map((r) => (
           <div key={r.id} className="card animate-pop space-y-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Runde #{r.id}</h2>
@@ -63,23 +65,30 @@ export default function HistoriePage() {
                 <a className="block break-words text-sm text-brand-600 hover:underline" href={r.winner.link} target="_blank" rel="noreferrer">
                   {r.winner.link}
                 </a>
+                <DecisionNote decision={r.decision} />
               </div>
             )}
-            <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-              {r.books.map((b) => (
-                <li key={b.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="font-medium">{b.title}</div>
-                    <div className="text-sm text-slate-500">
-                      von {b.author} · vorgeschlagen von {b.submitter}
+            <div>
+              {r.decision.runoffs.length > 0 && (
+                <div className="text-sm font-medium text-slate-500">Erste Abstimmung</div>
+              )}
+              <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+                {r.books.map((b) => (
+                  <li key={b.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="font-medium">{b.title}</div>
+                      <div className="text-sm text-slate-500">
+                        von {b.author} · vorgeschlagen von {b.submitter}
+                      </div>
                     </div>
-                  </div>
-                  <span className="self-start rounded-full bg-slate-100 px-2.5 py-0.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {b.votes} Stimmen
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    <span className="self-start rounded-full bg-slate-100 px-2.5 py-0.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      {b.votes} {b.votes === 1 ? 'Stimme' : 'Stimmen'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <RunoffDetails decision={r.decision} winnerId={r.winner?.id ?? null} />
           </div>
         ))}
       </main>

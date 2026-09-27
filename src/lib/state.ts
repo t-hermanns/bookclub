@@ -12,6 +12,7 @@ import {
   listFinishedRounds,
   listRoundBooks,
   listRunoffBookIds,
+  listRunoffRounds,
   listSubmitterNames,
   listVoterNames,
   tallyVotes,
@@ -61,7 +62,34 @@ export interface StateDTO {
     closedAt: string | null;
     winner: PublicBook | null;
     books: PublicBook[];
+    decision: Decision;
   } | null;
+}
+
+/** How a finished round's winner was determined, with the results of every run-off it took. */
+export interface Decision {
+  decidedBy: 'vote' | 'runoff' | 'random';
+  runoffs: { id: number; books: PublicBook[] }[];
+}
+
+/** Only for finished (top-level) suggestion rounds: run-off tallies are revealed here. */
+export function decisionFor(round: Round): Decision {
+  const runoffRounds = listRunoffRounds(round.id);
+  const deciding = runoffRounds[runoffRounds.length - 1] ?? round;
+  // The random pick isn't stored, but it's only offered on a tie: if the deciding
+  // round is still tied, the winner was drawn.
+  const { winnerId } = determineOutcome(deciding.id, candidateBookIds(deciding));
+  const decidedBy = winnerId === null ? 'random' : runoffRounds.length > 0 ? 'runoff' : 'vote';
+  const runoffs = runoffRounds.map((r) => {
+    const tally = tallyVotes(r.id);
+    const books = listRunoffBookIds(r.id)
+      .map((id) => bookById(id))
+      .filter((b): b is Book => !!b)
+      .map((b) => ({ id: b.id, title: b.title, author: b.author, link: b.link, votes: tally.get(b.id) ?? 0 }))
+      .sort((a, b) => b.votes - a.votes);
+    return { id: r.id, books };
+  });
+  return { decidedBy, runoffs };
 }
 
 function lastFinished(): StateDTO['lastFinishedRound'] {
@@ -90,7 +118,7 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
         votes: tally.get(w.id) ?? 0
       };
   }
-  return { id: r.id, closedAt: r.closed_at, winner, books };
+  return { id: r.id, closedAt: r.closed_at, winner, books, decision: decisionFor(r) };
 }
 
 export function buildState(user: Participant | null): StateDTO {

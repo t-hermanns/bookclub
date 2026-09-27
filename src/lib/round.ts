@@ -286,9 +286,16 @@ function isoFromHours(hours: number): string {
   return new Date(ms).toISOString();
 }
 
+/** Run-off rounds of a suggestion round, oldest first. Every run-off points at the original suggestion round. */
+export function listRunoffRounds(suggestionRoundId: number): Round[] {
+  return getDb()
+    .prepare('SELECT * FROM rounds WHERE runoff_parent_id=? ORDER BY id')
+    .all(suggestionRoundId) as Round[];
+}
+
 export function listFinishedRounds(): Round[] {
   return getDb()
-    .prepare("SELECT * FROM rounds WHERE status='finished' ORDER BY closed_at DESC")
+    .prepare("SELECT * FROM rounds WHERE status='finished' ORDER BY closed_at DESC, id DESC")
     .all() as Round[];
 }
 

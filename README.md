@@ -54,7 +54,7 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 - **Abstimmung**: anonym, eine Stimme, kein Vote auf eigenes Buch. Sichtbar ist, **wer** schon abgestimmt hat und wer noch aussteht (aber nicht wofür). Auto-Close wenn alle abgestimmt haben, sonst jederzeit manuell durch den Admin.
 - **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
 - **Zufallsauswahl**: Der Admin wählt aktiv per Knopfdruck einen zufälligen Gewinner aus den gleichauf liegenden Büchern.
-- **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen.
+- **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen. Wurde der Gewinner per Stichwahl oder Zufall bestimmt, steht das am Gewinner; die Ergebnisse jeder Stichwahl lassen sich aufklappen.
 
 ## Datenmodell
 
