@@ -17,6 +17,7 @@ export async function GET() {
       id: r.id,
       number: numbers.get(r.id)!,
       closedAt: r.closed_at,
+      votingSystem: r.voting_system,
       winner: r.winner_book_id ? publicizeBook(r.winner_book_id, tally) : null,
       books: listRoundBooks(r.id).map((b) => ({
         id: b.id,

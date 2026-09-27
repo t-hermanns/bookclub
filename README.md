@@ -20,6 +20,7 @@ Datenbank wird automatisch unter `./data/` angelegt.
 Umgebungsvariablen (optional, siehe `.env.example`):
 - `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion Pflicht:** Fehlt die Variable (oder steht noch ein Platzhalter wie in `.env.example` drin), startet `docker compose` nicht bzw. die App beantwortet keine Anfragen. Wer den Wert kennt, kann sich als beliebige Person anmelden – auch als Admin.
 - `ADMIN_PASSWORD` – Admin-Passwort (Default: `change-me`).
+- `VOTING_SYSTEM` – Abstimmungssystem für **neue** Runden: `single` (1 Stimme pro Person, Default) oder `three_votes` (3 Stimmen pro Person). Eine laufende Runde behält ihr System; der Admin sieht vor dem Start, welches gilt.
 - `DATA_DIR` – Pfad zum SQLite-Verzeichnis (Default: `./data`).
 
 ## Deployment (Portainer)
@@ -40,7 +41,7 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 
 1. In Portainer **Stacks → Add stack**.
 2. Inhalt aus `docker-compose.yml` einfügen.
-3. Unter "Environment variables" `SESSION_SECRET` (Pflicht) und ggf. `ADMIN_PASSWORD` setzen.
+3. Unter "Environment variables" `SESSION_SECRET` (Pflicht) und ggf. `ADMIN_PASSWORD` und `VOTING_SYSTEM` setzen.
 4. Optional: Build-Kontext über Portainer-Git verwenden, damit Updates per "Pull and redeploy" laufen.
 5. Die Datenbank landet im Named Volume `<stackname>_bookclub_data` (Portainer → **Volumes**). Es bleibt bei Redeploys erhalten.
 
@@ -51,14 +52,14 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 - **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
 - **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
 - **Phase "Vorschläge geschlossen"**: alle sehen die Bücher anonym. Eigene Vorschläge bleiben editierbar. Der Admin sieht Hinweis-Banner.
-- **Abstimmung**: anonym, eine Stimme, kein Vote auf eigenes Buch. Sichtbar ist, **wer** schon abgestimmt hat und wer noch aussteht (aber nicht wofür). Auto-Close wenn alle abgestimmt haben, sonst jederzeit manuell durch den Admin.
-- **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
+- **Abstimmung**: anonym, kein Vote auf eigenes Buch. Je nach `VOTING_SYSTEM` hat jede:r **1 Stimme** oder **3 Stimmen**; bei 3 Stimmen müssen alle drei vergeben werden, auch mehrere (oder alle) für dasselbe Buch. Das System wird beim Start der Runde festgelegt und bei der Runde sowie in der Historie angezeigt. Sichtbar ist, **wer** schon abgestimmt hat und wer noch aussteht (aber nicht wofür). Auto-Close wenn alle abgestimmt haben, sonst jederzeit manuell durch den Admin.
+- **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In der Stichwahl hat jede:r immer 1 Stimme. In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
 - **Zufallsauswahl**: Der Admin wählt aktiv per Knopfdruck einen zufälligen Gewinner aus den gleichauf liegenden Büchern.
 - **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen. Wurde der Gewinner per Stichwahl oder Zufall bestimmt, steht das am Gewinner; die Ergebnisse jeder Stichwahl lassen sich aufklappen.
 
 ## Datenmodell
 
-`rounds` (Suggestion-Runde + Child-Runden für Stichwahlen via `runoff_parent_id`), `books`, `votes`, `runoff_books`, `app_state`. Sprechende Status: `suggestions_open`, `suggestions_closed`, `voting_open`, `runoff_open`, `voting_closed`, `finished`.
+`rounds` (Suggestion-Runde + Child-Runden für Stichwahlen via `runoff_parent_id`; `voting_system` pro Runde), `books`, `votes`, `runoff_books`, `app_state`. Sprechende Status: `suggestions_open`, `suggestions_closed`, `voting_open`, `runoff_open`, `voting_closed`, `finished`.
 
 ## Backup
 
@@ -124,6 +125,6 @@ Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich au
 |-----------------|-------|
 | `rounds`        | Eine Zeile pro Vorschlags-/Stichwahl-Runde inkl. `status`, Deadlines, `winner_book_id`. |
 | `books`         | Bücher pro Suggestion-Runde mit `submitter_name`. |
-| `votes`         | Eine Stimme pro `(round_id, voter_name)`. |
+| `votes`         | Stimmzettel: eine Zeile pro `(round_id, voter_name, book_id)` mit `points` (Anzahl Stimmen für das Buch). |
 | `runoff_books`  | Welche Bücher zu einer Stichwahl-Runde gehören. |
 | `app_state`     | Key-Value-Store; insbesondere `active_round_id`. |

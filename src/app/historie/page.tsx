@@ -5,11 +5,13 @@ import { Header } from '@/components/Header';
 import { fmtDate } from '@/components/Countdown';
 import { DecisionNote, RunoffDetails } from '@/components/Decision';
 import type { Decision } from '@/lib/state';
+import { votingSystemLabel } from '@/lib/voting';
 
 interface HistoryRound {
   id: number;
   number: number;
   closedAt: string | null;
+  votingSystem: string;
   winner: { id: number; title: string; author: string; link: string; submitter: string; votes: number } | null;
   books: { id: number; title: string; author: string; link: string; submitter: string; votes: number }[];
   decision: Decision;
@@ -53,7 +55,12 @@ export default function HistoriePage() {
         {rounds?.map((r) => (
           <div key={r.id} className="card animate-pop space-y-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold">Runde #{r.number}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold">Runde #{r.number}</h2>
+                <span className="pill bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {votingSystemLabel(r.votingSystem)}
+                </span>
+              </div>
               <span className="text-sm text-slate-500">{fmtDate(r.closedAt)}</span>
             </div>
             {r.winner && (

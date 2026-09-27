@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { StateDTO } from '@/lib/state';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DeadlinePicker, localInputToISO, useDefaultDeadline } from './DeadlinePicker';
+import { VOTING_SYSTEMS, votingSystemLabel, type VotingSystem } from '@/lib/voting';
 
 async function post(url: string, body?: unknown) {
   const res = await fetch(url, {
@@ -57,6 +58,7 @@ export function AdminBar({
         <StartSuggestions
           onRun={run}
           busy={busy}
+          votingSystem={state.newRoundVotingSystem}
           label={state.lastFinishedRound ? 'Neue Runde starten' : 'Buchvorschläge starten'}
         />
       )}
@@ -188,22 +190,34 @@ export function AdminBar({
 function StartSuggestions({
   onRun,
   busy,
+  votingSystem,
   label = 'Buchvorschläge starten'
 }: {
   onRun: (fn: () => Promise<void>) => void;
   busy: boolean;
+  votingSystem: VotingSystem | null;
   label?: string;
 }) {
   const [deadline, setDeadline] = useDefaultDeadline(24 * 7);
   return (
     <div className="space-y-2">
       <p className="text-sm">Aktuell läuft keine Runde.</p>
+      {votingSystem ? (
+        <p className="text-sm">
+          Abstimmung in der neuen Runde: <strong>{votingSystemLabel(votingSystem)}</strong>{' '}
+          <span className="text-slate-500">(Einstellung VOTING_SYSTEM)</span>
+        </p>
+      ) : (
+        <div className="banner-warn">
+          VOTING_SYSTEM hat einen unbekannten Wert. Erlaubt: {Object.keys(VOTING_SYSTEMS).join(', ')}.
+        </div>
+      )}
       <label className="block text-sm font-medium">Frist (Datum & Uhrzeit)</label>
       <DeadlinePicker defaultHours={24 * 7} value={deadline} onChange={setDeadline} />
       <div>
         <button
           className="btn-primary"
-          disabled={busy || !deadline}
+          disabled={busy || !deadline || !votingSystem}
           onClick={() =>
             onRun(async () => {
               const r = await post('/api/admin/round/start-suggestions', {

@@ -7,6 +7,24 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const dbPath = path.join(DATA_DIR, 'bookclub.sqlite');
 
+// One row per (round, voter, book) with the points given; a voter's rows form their ballot.
+function votesTableSql(name: string): string {
+  return `
+    CREATE TABLE IF NOT EXISTS ${name} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      round_id INTEGER NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
+      voter_name TEXT NOT NULL,
+      book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      points INTEGER NOT NULL DEFAULT 1 CHECK (points > 0),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(round_id, voter_name, book_id)
+    );`;
+}
+
+function hasColumn(db: Database.Database, table: string, column: string): boolean {
+  return (db.pragma(`table_info(${table})`) as { name: string }[]).some((c) => c.name === column);
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __bookclub_db: Database.Database | undefined;
@@ -24,7 +42,8 @@ function init(db: Database.Database) {
       runoff_parent_id INTEGER REFERENCES rounds(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       closed_at TEXT,
-      winner_book_id INTEGER
+      winner_book_id INTEGER,
+      voting_system TEXT NOT NULL DEFAULT 'single'
     );
     CREATE TABLE IF NOT EXISTS books (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,14 +56,7 @@ function init(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(round_id, submitter_name)
     );
-    CREATE TABLE IF NOT EXISTS votes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      round_id INTEGER NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
-      voter_name TEXT NOT NULL,
-      book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(round_id, voter_name)
-    );
+    ${votesTableSql('votes')}
     CREATE TABLE IF NOT EXISTS runoff_books (
       round_id INTEGER NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
       book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
@@ -55,6 +67,23 @@ function init(db: Database.Database) {
       value TEXT
     );
   `);
+  // Databases from before voting systems: every existing round used one vote per person.
+  if (!hasColumn(db, 'rounds', 'voting_system')) {
+    db.exec(`ALTER TABLE rounds ADD COLUMN voting_system TEXT NOT NULL DEFAULT 'single'`);
+  }
+  // ...and `votes` allowed a single row per voter (UNIQUE(round_id, voter_name)). SQLite can't
+  // change a constraint in place, so rebuild the table; each old vote becomes one point.
+  if (!hasColumn(db, 'votes', 'points')) {
+    db.transaction(() => {
+      db.exec(votesTableSql('votes_new'));
+      db.exec(`
+        INSERT INTO votes_new (id, round_id, voter_name, book_id, points, created_at)
+          SELECT id, round_id, voter_name, book_id, 1, created_at FROM votes;
+        DROP TABLE votes;
+        ALTER TABLE votes_new RENAME TO votes;
+      `);
+    })();
+  }
   // Repair rows from before finishWithWinner covered chained run-offs: an earlier run-off
   // of a finished round was left at 'voting_closed'. Idempotent, so it simply runs on every start.
   db.exec(`
