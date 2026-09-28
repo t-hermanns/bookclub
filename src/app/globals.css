@@ -86,7 +86,7 @@ body {
 }
 .animate-pop { animation: pop-in 220ms ease-out both; }
 
-/* Autumn / Halloween theme banner (ThemeBanner.tsx): dusk sky, moon, bats. */
+/* Autumn / Halloween theme banner (ThemeBanner.tsx): dusk sky and moon. */
 @keyframes sky-shift {
   0%   { background-position: 0% 30%; }
   100% { background-position: 100% 70%; }
@@ -102,19 +102,3 @@ body {
   50%      { box-shadow: 0 0 42px 14px rgba(254, 243, 199, 0.45); }
 }
 .autumn-moon { animation: moon-glow 5s ease-in-out infinite; }
-
-/* A bat crosses in the first 40% of its cycle, then stays off-screen until the next pass. */
-@keyframes bat-fly {
-  0%   { left: -15%; top: 65%; transform: rotate(-12deg); }
-  10%  { top: 20%; }
-  20%  { top: 55%; transform: rotate(10deg); }
-  30%  { top: 12%; }
-  40%  { left: 115%; top: 40%; transform: rotate(-12deg); }
-  100% { left: 115%; top: 40%; }
-}
-@keyframes bat-flap {
-  0%, 100% { transform: scaleY(1); }
-  50%      { transform: scaleY(0.5); }
-}
-.autumn-bat { position: absolute; pointer-events: none; animation: bat-fly 9s linear infinite both; }
-.autumn-wings { transform-origin: 50% 35%; animation: bat-flap 0.24s ease-in-out infinite; }
