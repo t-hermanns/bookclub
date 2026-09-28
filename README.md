@@ -50,7 +50,7 @@ Die `docker-compose.yml` baut das Image selbst (`build: .`), Portainer braucht a
 ## Funktionsumfang
 
 - **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie). Der Admin bestätigt zusätzlich mit Passwort.
-- **Thema**: Der Admin kann beim Start einer Runde optional ein Thema eintragen (z. B. „Herbst & Halloween“). Es steht als Banner über den Vorschlägen, solange Vorschläge laufen bzw. geschlossen sind (bei Herbst-/Halloween-Themen animiert in Orange); ohne Thema erscheint nichts.
+- **Thema**: Der Admin kann beim Start einer Runde optional ein Thema eintragen (z. B. „Herbst & Halloween“). Es steht als Banner über den Vorschlägen, solange Vorschläge laufen bzw. geschlossen sind (bei Herbst-/Halloween-Themen als animierter Abendhimmel mit Mond und Fledermäusen); ohne Thema erscheint nichts.
 - **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Sichtbar ist, **wer** schon eingereicht hat und wer noch aussteht (aber nicht was).
 - **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
 - **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
