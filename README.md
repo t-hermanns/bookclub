@@ -114,17 +114,6 @@ docker exec -it bookclub sqlite3 /app/data/bookclub.sqlite
 
 Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich auch mit [DB Browser for SQLite](https://sqlitebrowser.org/) oder JetBrains DataGrip öffnen — einfach als „Open database" laden.
 
-### Thema der laufenden Runde nachträglich setzen
-
-Das Thema wird normalerweise beim Start der Runde eingetragen. Für eine schon laufende Runde (die App lädt die Änderung beim nächsten Aktualisieren, spätestens nach 5 Sekunden):
-
-```sql
-UPDATE rounds SET theme = 'Herbst & Halloween'
-WHERE id = CAST((SELECT value FROM app_state WHERE key = 'active_round_id') AS INTEGER);
-```
-
-Zum Entfernen `theme = NULL` setzen.
-
 ### Wichtig: Schreibzugriff & WAL
 
 - Die Datenbank läuft im WAL-Modus — neben `bookclub.sqlite` liegen `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Beim Kopieren und Sichern also immer alle drei mitnehmen.
