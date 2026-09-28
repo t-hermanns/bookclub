@@ -20,6 +20,8 @@ export interface Round {
   closed_at: string | null;
   winner_book_id: number | null;
   voting_system: VotingSystem;
+  /** Optional theme for the suggestions, set by the admin when starting the round. */
+  theme: string | null;
 }
 
 export interface Book {
@@ -153,14 +155,18 @@ export function castBallot(roundId: number, name: Participant, ballot: BallotEnt
  * Lifecycle transitions
  * ============================================================ */
 
-export function startNewRound(deadlineHours: number, votingSystem: VotingSystem): Round {
+export function startNewRound(
+  deadlineHours: number,
+  votingSystem: VotingSystem,
+  theme: string | null
+): Round {
   const db = getDb();
   const deadline = isoFromHours(deadlineHours);
   const result = db
     .prepare(
-      `INSERT INTO rounds(status, suggestions_deadline, voting_system) VALUES('suggestions_open', ?, ?)`
+      `INSERT INTO rounds(status, suggestions_deadline, voting_system, theme) VALUES('suggestions_open', ?, ?, ?)`
     )
-    .run(deadline, votingSystem);
+    .run(deadline, votingSystem, theme);
   const id = Number(result.lastInsertRowid);
   setActiveRoundId(id);
   return getRound(id)!;

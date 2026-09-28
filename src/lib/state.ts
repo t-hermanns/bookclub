@@ -7,6 +7,7 @@ import {
   determineOutcome,
   eligibleVoterCount,
   getActiveRound,
+  getRound,
   getOwnBallot,
   getOwnBook,
   listFinishedRounds,
@@ -44,6 +45,8 @@ export interface StateDTO {
     suggestionsDeadline: string | null;
     votingDeadline: string | null;
     isRunoff: boolean;
+    /** Theme of the suggestions (set when the round starts); null when there is none. */
+    theme: string | null;
     votingSystem: VotingSystem;
     /** Votes each ballot must add up to (1 for 'single' and in run-offs). */
     votesPerVoter: number;
@@ -218,6 +221,8 @@ export function buildState(user: Participant | null): StateDTO {
 
   // Own-book ownership: own book lives in the suggestion round (the parent for runoffs).
   const submissionRoundId = round.runoff_parent_id ?? round.id;
+  // The theme belongs to the suggestion round; run-offs are child rounds without one.
+  const theme = (isRunoff ? getRound(submissionRoundId)?.theme : round.theme) ?? null;
   const ownBook = getOwnBook(submissionRoundId, user);
   const ownBallot = getOwnBallot(round.id, user);
 
@@ -240,6 +245,7 @@ export function buildState(user: Participant | null): StateDTO {
       suggestionsDeadline: round.suggestions_deadline,
       votingDeadline: round.voting_deadline,
       isRunoff,
+      theme,
       votingSystem: round.voting_system,
       votesPerVoter: votesPerVoter(round),
       submittedCount: countSubmitters(submissionRoundId),

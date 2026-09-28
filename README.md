@@ -48,6 +48,7 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 ## Funktionsumfang
 
 - **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie). Der Admin bestätigt zusätzlich mit Passwort.
+- **Thema**: Der Admin kann beim Start einer Runde optional ein Thema eintragen (z. B. „Herbst & Halloween“). Es steht als Banner über den Vorschlägen, solange Vorschläge laufen bzw. geschlossen sind; ohne Thema erscheint nichts.
 - **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Sichtbar ist, **wer** schon eingereicht hat und wer noch aussteht (aber nicht was).
 - **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
 - **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
@@ -113,6 +114,17 @@ docker exec -it bookclub sqlite3 /app/data/bookclub.sqlite
 
 Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich auch mit [DB Browser for SQLite](https://sqlitebrowser.org/) oder JetBrains DataGrip öffnen — einfach als „Open database" laden.
 
+### Thema der laufenden Runde nachträglich setzen
+
+Das Thema wird normalerweise beim Start der Runde eingetragen. Für eine schon laufende Runde (die App lädt die Änderung beim nächsten Aktualisieren, spätestens nach 5 Sekunden):
+
+```sql
+UPDATE rounds SET theme = 'Herbst & Halloween'
+WHERE id = CAST((SELECT value FROM app_state WHERE key = 'active_round_id') AS INTEGER);
+```
+
+Zum Entfernen `theme = NULL` setzen.
+
 ### Wichtig: Schreibzugriff & WAL
 
 - Die Datenbank läuft im WAL-Modus — neben `bookclub.sqlite` liegen `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Beim Kopieren und Sichern also immer alle drei mitnehmen.
@@ -123,7 +135,7 @@ Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich au
 
 | Tabelle         | Zweck |
 |-----------------|-------|
-| `rounds`        | Eine Zeile pro Vorschlags-/Stichwahl-Runde inkl. `status`, Deadlines, `winner_book_id`. |
+| `rounds`        | Eine Zeile pro Vorschlags-/Stichwahl-Runde inkl. `status`, Deadlines, `winner_book_id`, `voting_system`, `theme` (optional). |
 | `books`         | Bücher pro Suggestion-Runde mit `submitter_name`. |
 | `votes`         | Stimmzettel: eine Zeile pro `(round_id, voter_name, book_id)` mit `points` (Anzahl Stimmen für das Buch). |
 | `runoff_books`  | Welche Bücher zu einer Stichwahl-Runde gehören. |

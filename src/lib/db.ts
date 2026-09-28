@@ -43,7 +43,8 @@ function init(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       closed_at TEXT,
       winner_book_id INTEGER,
-      voting_system TEXT NOT NULL DEFAULT 'single'
+      voting_system TEXT NOT NULL DEFAULT 'single',
+      theme TEXT
     );
     CREATE TABLE IF NOT EXISTS books (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,6 +71,10 @@ function init(db: Database.Database) {
   // Databases from before voting systems: every existing round used one vote per person.
   if (!hasColumn(db, 'rounds', 'voting_system')) {
     db.exec(`ALTER TABLE rounds ADD COLUMN voting_system TEXT NOT NULL DEFAULT 'single'`);
+  }
+  // Optional theme for a round's suggestions (e.g. "Herbst & Halloween"); older rows have none.
+  if (!hasColumn(db, 'rounds', 'theme')) {
+    db.exec(`ALTER TABLE rounds ADD COLUMN theme TEXT`);
   }
   // ...and `votes` allowed a single row per voter (UNIQUE(round_id, voter_name)). SQLite can't
   // change a constraint in place, so rebuild the table; each old vote becomes one point.
