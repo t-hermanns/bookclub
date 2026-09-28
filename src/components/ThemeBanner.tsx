@@ -16,12 +16,14 @@ export function ThemeBanner({ theme }: { theme: string | null }) {
   );
 }
 
-// TEMPORARY: three looks to compare via ?banner=a|b|c; one stays.
+// TEMPORARY: looks to compare via ?banner=a|b|c|d|e; one stays.
 function AutumnBanner({ theme }: { theme: string }) {
   const variant =
     (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('banner')) || 'a';
   if (variant === 'b') return <EmberBanner theme={theme} />;
   if (variant === 'c') return <PumpkinBanner theme={theme} />;
+  if (variant === 'd') return <OutlineBatsBanner theme={theme} />;
+  if (variant === 'e') return <OutlineLeavesBanner theme={theme} />;
   return <DuskBanner theme={theme} />;
 }
 
@@ -97,6 +99,45 @@ function PumpkinBanner({ theme }: { theme: string }) {
       <div className="relative flex items-center justify-between gap-3">
         <Title theme={theme} labelClass="text-orange-400" />
         <Pumpkin className="autumn-pumpkin w-20 shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+/** D: regular card with an animated violet-to-orange frame, bats and a small pumpkin. */
+function OutlineBatsBanner({ theme }: { theme: string }) {
+  return (
+    <div className="autumn-outline relative overflow-hidden rounded-2xl p-5 shadow-sm">
+      <div aria-hidden>
+        <Bat className="autumn-bat w-9 text-stone-800 dark:text-stone-300" style={{ animationDelay: '0s' }} />
+        <Bat
+          className="autumn-bat w-6 text-stone-800 dark:text-stone-300"
+          style={{ animationDelay: '4s', animationDuration: '10s' }}
+        />
+      </div>
+      <div className="relative flex items-center justify-between gap-3">
+        <Title theme={theme} labelClass="text-orange-600 dark:text-orange-400" />
+        <Pumpkin className="autumn-pumpkin w-14 shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+/** E: regular card with an animated frame and orange leaves drifting down. */
+function OutlineLeavesBanner({ theme }: { theme: string }) {
+  return (
+    <div className="autumn-outline relative overflow-hidden rounded-2xl p-5 shadow-sm">
+      <div aria-hidden>
+        {LEAVES.map((l) => (
+          <Leaf
+            key={l.left}
+            className={`autumn-leaf ${l.size} text-orange-500/50`}
+            style={{ left: l.left, animationDelay: l.delay, animationDuration: l.duration }}
+          />
+        ))}
+      </div>
+      <div className="relative">
+        <Title theme={theme} labelClass="text-orange-600 dark:text-orange-400" />
       </div>
     </div>
   );

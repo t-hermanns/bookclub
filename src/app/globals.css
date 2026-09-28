@@ -157,3 +157,19 @@ body {
 }
 .autumn-pumpkin { transform-origin: 50% 90%; animation: pumpkin-bob 2.6s ease-in-out infinite; }
 
+
+/* Unfilled variant: normal card surface with an animated gradient frame. */
+@keyframes frame-shift {
+  0%   { background-position: 0 0, 0% 50%; }
+  100% { background-position: 0 0, 100% 50%; }
+}
+.autumn-outline {
+  --card-surface: #ffffff;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--card-surface), var(--card-surface)) padding-box,
+    linear-gradient(120deg, #6b21a8, #f97316, #f59e0b, #c2410c, #6b21a8) border-box;
+  background-size: 100% 100%, 300% 100%;
+  animation: frame-shift 6s linear infinite alternate, pop-in 220ms ease-out both;
+}
+.dark .autumn-outline { --card-surface: #0f172a; }
