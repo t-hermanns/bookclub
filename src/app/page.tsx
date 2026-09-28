@@ -158,11 +158,9 @@ function BooksListInline({
 function ThemeBanner({ theme }: { theme: string | null }) {
   if (!theme) return null;
   return (
-    <div className="card animate-pop border-brand-200 bg-gradient-to-br from-brand-500/10 via-pink-500/5 to-transparent dark:border-brand-700/40">
-      <div className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-100">
-        Thema dieser Runde
-      </div>
-      <div className="mt-1 break-words text-2xl font-bold">{theme}</div>
+    <div className="card">
+      <div className="text-sm text-slate-500">Thema dieser Runde</div>
+      <div className="mt-0.5 break-words text-xl font-semibold">{theme}</div>
     </div>
   );
 }

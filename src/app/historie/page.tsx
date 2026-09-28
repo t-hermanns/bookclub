@@ -12,6 +12,7 @@ interface HistoryRound {
   number: number;
   closedAt: string | null;
   votingSystem: string;
+  theme: string | null;
   winner: { id: number; title: string; author: string; link: string; submitter: string; votes: number } | null;
   books: { id: number; title: string; author: string; link: string; submitter: string; votes: number }[];
   decision: Decision;
@@ -63,6 +64,11 @@ export default function HistoriePage() {
               </div>
               <span className="text-sm text-slate-500">{fmtDate(r.closedAt)}</span>
             </div>
+            {r.theme && (
+              <div className="break-words text-sm text-slate-600 dark:text-slate-300">
+                Thema: <span className="font-medium">{r.theme}</span>
+              </div>
+            )}
             {r.winner && (
               <div className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-500/10 to-pink-500/5 p-3 dark:border-brand-700/40">
                 <div className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-200">🏆 Gewinner</div>
