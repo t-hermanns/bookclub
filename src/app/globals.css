@@ -87,34 +87,73 @@ body {
 .animate-pop { animation: pop-in 220ms ease-out both; }
 
 /* Autumn / Halloween theme banner (ThemeBanner.tsx) */
-@keyframes leaf-fall {
-  0%   { transform: translate3d(0, -2.5rem, 0) rotate(0deg); opacity: 0; }
-  15%  { opacity: 0.9; }
-  100% { transform: translate3d(2.5rem, 9rem, 0) rotate(300deg); opacity: 0; }
+@keyframes sky-shift {
+  0%   { background-position: 0% 30%; }
+  100% { background-position: 100% 70%; }
 }
-@keyframes pumpkin-bob {
-  0%, 100% { transform: translateY(0) rotate(-8deg); }
-  50%      { transform: translateY(-6px) rotate(8deg); }
+.autumn-dusk {
+  background: linear-gradient(135deg, #2e1065 0%, #6b21a8 30%, #c2410c 72%, #f97316 100%);
+  background-size: 200% 200%;
+  animation: sky-shift 14s ease-in-out infinite alternate, pop-in 220ms ease-out both;
 }
-/* A bat crosses in the first 40% of the cycle, then stays off-screen until the next one. */
+.autumn-ember {
+  background: linear-gradient(120deg, #7c2d12, #c2410c, #f97316, #f59e0b, #ea580c, #9a3412);
+  background-size: 300% 300%;
+  animation: sky-shift 10s ease-in-out infinite alternate, pop-in 220ms ease-out both;
+}
+
+@keyframes moon-glow {
+  0%, 100% { box-shadow: 0 0 24px 6px rgba(254, 243, 199, 0.3); }
+  50%      { box-shadow: 0 0 42px 14px rgba(254, 243, 199, 0.45); }
+}
+.autumn-moon { animation: moon-glow 5s ease-in-out infinite; }
+
+/* A bat crosses in the first 40% of its cycle, then stays off-screen until the next pass. */
 @keyframes bat-fly {
-  0%   { left: -12%; top: 60%; transform: rotate(-12deg); }
-  10%  { top: 18%; }
-  20%  { top: 50%; transform: rotate(10deg); }
+  0%   { left: -15%; top: 65%; transform: rotate(-12deg); }
+  10%  { top: 20%; }
+  20%  { top: 55%; transform: rotate(10deg); }
   30%  { top: 12%; }
-  40%  { left: 112%; top: 40%; transform: rotate(-12deg); }
-  100% { left: 112%; top: 40%; }
+  40%  { left: 115%; top: 40%; transform: rotate(-12deg); }
+  100% { left: 115%; top: 40%; }
 }
 @keyframes bat-flap {
   0%, 100% { transform: scaleY(1); }
-  50%      { transform: scaleY(0.55); }
+  50%      { transform: scaleY(0.5); }
 }
-/* Darkened so the orange-brown leaf emoji stand out on the orange card. */
-.autumn-leaf { position: absolute; top: 0; pointer-events: none; filter: brightness(0.55) saturate(1.2); animation: leaf-fall linear infinite both; }
-.autumn-pumpkin { display: inline-block; transform-origin: 50% 90%; animation: pumpkin-bob 2.4s ease-in-out infinite; }
 .autumn-bat { position: absolute; pointer-events: none; animation: bat-fly 9s linear infinite both; }
-.autumn-bat > span { display: inline-block; animation: bat-flap 0.22s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .autumn-leaf, .autumn-bat { display: none; }
-  .autumn-pumpkin { animation: none; }
+.autumn-wings { transform-origin: 50% 35%; animation: bat-flap 0.24s ease-in-out infinite; }
+
+@keyframes leaf-fall {
+  0%   { transform: translate3d(0, -2.5rem, 0) rotate(0deg); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate3d(2.5rem, 9rem, 0) rotate(320deg); opacity: 0; }
 }
+.autumn-leaf { position: absolute; top: 0; pointer-events: none; animation: leaf-fall linear infinite both; }
+
+@keyframes candle {
+  0%, 100% { opacity: 0.85; }
+  20%      { opacity: 1; }
+  40%      { opacity: 0.7; }
+  60%      { opacity: 0.95; }
+  80%      { opacity: 0.75; }
+}
+.autumn-glow {
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.6) 0%, rgba(249, 115, 22, 0.15) 45%, transparent 70%);
+  animation: candle 3s ease-in-out infinite;
+}
+.autumn-candle { animation: candle 2.2s ease-in-out infinite; }
+
+@keyframes ember-rise {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(-14px, -110px); opacity: 0; }
+}
+.autumn-ember-dot { box-shadow: 0 0 6px 2px rgba(251, 146, 60, 0.6); animation: ember-rise 4s ease-in infinite both; }
+
+@keyframes pumpkin-bob {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50%      { transform: translateY(-5px) rotate(6deg); }
+}
+.autumn-pumpkin { transform-origin: 50% 90%; animation: pumpkin-bob 2.6s ease-in-out infinite; }
+
