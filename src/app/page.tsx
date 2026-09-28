@@ -6,6 +6,7 @@ import { useAppState } from '@/components/useAppState';
 import { AdminBar } from '@/components/AdminBar';
 import { BooksList, ResultCard, SubmissionCard, VotingCard } from '@/components/StageCards';
 import { ParticipationRoster } from '@/components/ParticipationRoster';
+import { ThemeBanner } from '@/components/ThemeBanner';
 import { DecisionNote, RunoffDetails } from '@/components/Decision';
 import type { Decision } from '@/lib/state';
 import { votingSystemLabel } from '@/lib/voting';
@@ -150,17 +151,6 @@ function BooksListInline({
         ))}
       </ul>
       <RunoffDetails decision={decision} winnerId={winnerId} />
-    </div>
-  );
-}
-
-/** The round's theme for the suggestions, if the admin set one. */
-function ThemeBanner({ theme }: { theme: string | null }) {
-  if (!theme) return null;
-  return (
-    <div className="card">
-      <div className="text-sm text-slate-500">Thema dieser Runde</div>
-      <div className="mt-0.5 break-words text-xl font-semibold">{theme}</div>
     </div>
   );
 }

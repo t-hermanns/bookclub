@@ -85,3 +85,36 @@ body {
   100% { opacity: 1; transform: translateY(0)  scale(1); }
 }
 .animate-pop { animation: pop-in 220ms ease-out both; }
+
+/* Autumn / Halloween theme banner (ThemeBanner.tsx) */
+@keyframes leaf-fall {
+  0%   { transform: translate3d(0, -2.5rem, 0) rotate(0deg); opacity: 0; }
+  15%  { opacity: 0.9; }
+  100% { transform: translate3d(2.5rem, 9rem, 0) rotate(300deg); opacity: 0; }
+}
+@keyframes pumpkin-bob {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50%      { transform: translateY(-6px) rotate(8deg); }
+}
+/* A bat crosses in the first 40% of the cycle, then stays off-screen until the next one. */
+@keyframes bat-fly {
+  0%   { left: -12%; top: 60%; transform: rotate(-12deg); }
+  10%  { top: 18%; }
+  20%  { top: 50%; transform: rotate(10deg); }
+  30%  { top: 12%; }
+  40%  { left: 112%; top: 40%; transform: rotate(-12deg); }
+  100% { left: 112%; top: 40%; }
+}
+@keyframes bat-flap {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(0.55); }
+}
+/* Darkened so the orange-brown leaf emoji stand out on the orange card. */
+.autumn-leaf { position: absolute; top: 0; pointer-events: none; filter: brightness(0.55) saturate(1.2); animation: leaf-fall linear infinite both; }
+.autumn-pumpkin { display: inline-block; transform-origin: 50% 90%; animation: pumpkin-bob 2.4s ease-in-out infinite; }
+.autumn-bat { position: absolute; pointer-events: none; animation: bat-fly 9s linear infinite both; }
+.autumn-bat > span { display: inline-block; animation: bat-flap 0.22s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .autumn-leaf, .autumn-bat { display: none; }
+  .autumn-pumpkin { animation: none; }
+}
