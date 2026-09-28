@@ -12,7 +12,8 @@ export const PARTICIPANTS = [
   'Kim',
   'Leo',
   'Mia',
-  'Nina'
+  'Nina',
+  'Oscar'
 ] as const;
 
 export type Participant = (typeof PARTICIPANTS)[number];
