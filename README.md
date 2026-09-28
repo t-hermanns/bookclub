@@ -5,7 +5,7 @@ Kleine Web-App für unseren Bookclub: Buchvorschläge, anonyme Abstimmung, Stich
 ## Stack
 - Next.js 14 (App Router, TypeScript)
 - Tailwind CSS, Light/Dark-Mode
-- SQLite via `better-sqlite3` (eine Datei unter `./data/bookclub.sqlite`)
+- SQLite via `better-sqlite3` (lokal unter `./data/`, im Betrieb im Docker-Volume)
 - Polling (5s) für Live-Updates
 
 ## Lokale Entwicklung
@@ -17,8 +17,8 @@ npm run dev   # http://localhost:3000
 
 Datenbank wird automatisch unter `./data/` angelegt.
 
-Umgebungsvariablen (optional, siehe `.env.example`):
-- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion Pflicht:** Fehlt die Variable (oder steht noch ein Platzhalter wie in `.env.example` drin), startet `docker compose` nicht bzw. die App beantwortet keine Anfragen. Wer den Wert kennt, kann sich als beliebige Person anmelden – auch als Admin.
+Umgebungsvariablen (siehe `.env.example`; für die lokale Entwicklung alle optional):
+- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion Pflicht:** Fehlt die Variable, startet `docker compose` nicht; steht noch ein Platzhalter wie in `.env.example` drin, verweigert die App Anmeldung und alle Inhalte. Wer den Wert kennt, kann sich als beliebige Person anmelden – auch als Admin.
 - `ADMIN_PASSWORD` – Admin-Passwort (Default: `change-me`).
 - `VOTING_SYSTEM` – Abstimmungssystem für **neue** Runden: `single` (1 Stimme pro Person, Default) oder `three_votes` (3 Stimmen pro Person). Eine laufende Runde behält ihr System; der Admin sieht vor dem Start, welches gilt.
 - `DATA_DIR` – Pfad zum SQLite-Verzeichnis (Default: `./data`).
@@ -39,15 +39,18 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 
 ### Variante B: Stack in Portainer
 
-1. In Portainer **Stacks → Add stack**.
-2. Inhalt aus `docker-compose.yml` einfügen.
+Die `docker-compose.yml` baut das Image selbst (`build: .`), Portainer braucht also den Code aus dem Git-Repo – über den Web-Editor eingefügt fehlt der Build-Kontext.
+
+1. In Portainer **Stacks → Add stack**, Build method **Repository**.
+2. Repository-URL dieses Repos, Reference `refs/heads/master`, Compose path `docker-compose.yml`. Da das Repo privat ist: **Authentication** mit GitHub-Benutzername und einem Personal Access Token.
 3. Unter "Environment variables" `SESSION_SECRET` (Pflicht) und ggf. `ADMIN_PASSWORD` und `VOTING_SYSTEM` setzen.
-4. Optional: Build-Kontext über Portainer-Git verwenden, damit Updates per "Pull and redeploy" laufen.
+4. Updates danach per **Pull and redeploy**.
 5. Die Datenbank landet im Named Volume `<stackname>_bookclub_data` (Portainer → **Volumes**). Es bleibt bei Redeploys erhalten.
 
 ## Funktionsumfang
 
 - **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie). Der Admin bestätigt zusätzlich mit Passwort.
+- **Thema**: Der Admin kann beim Start einer Runde optional ein Thema eintragen (z. B. „Herbst & Halloween“). Es steht als Banner über den Vorschlägen, solange Vorschläge laufen bzw. geschlossen sind (bei Herbst-/Halloween-Themen als animierter Abendhimmel mit Mond); ohne Thema erscheint nichts.
 - **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Sichtbar ist, **wer** schon eingereicht hat und wer noch aussteht (aber nicht was).
 - **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
 - **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
@@ -56,10 +59,6 @@ Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose 
 - **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In der Stichwahl hat jede:r immer 1 Stimme. In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
 - **Zufallsauswahl**: Der Admin wählt aktiv per Knopfdruck einen zufälligen Gewinner aus den gleichauf liegenden Büchern.
 - **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen. Wurde der Gewinner per Stichwahl oder Zufall bestimmt, steht das am Gewinner; die Ergebnisse jeder Stichwahl lassen sich aufklappen.
-
-## Datenmodell
-
-`rounds` (Suggestion-Runde + Child-Runden für Stichwahlen via `runoff_parent_id`; `voting_system` pro Runde), `books`, `votes`, `runoff_books`, `app_state`. Sprechende Status: `suggestions_open`, `suggestions_closed`, `voting_open`, `runoff_open`, `voting_closed`, `finished`.
 
 ## Backup
 
@@ -95,7 +94,7 @@ sqlite3 ./bookclub-snapshot/bookclub.sqlite
 .mode column
 SELECT * FROM rounds;
 SELECT * FROM books ORDER BY round_id;
-SELECT round_id, voter_name, book_id FROM votes;
+SELECT round_id, voter_name, book_id, points FROM votes;
 .quit
 ```
 
@@ -123,8 +122,10 @@ Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich au
 
 | Tabelle         | Zweck |
 |-----------------|-------|
-| `rounds`        | Eine Zeile pro Vorschlags-/Stichwahl-Runde inkl. `status`, Deadlines, `winner_book_id`. |
+| `rounds`        | Eine Zeile pro Vorschlags-Runde; Stichwahlen sind eigene Zeilen mit `runoff_parent_id` auf die Vorschlags-Runde. Dazu `status`, Deadlines, `winner_book_id`, `voting_system`, `theme` (optional). |
 | `books`         | Bücher pro Suggestion-Runde mit `submitter_name`. |
 | `votes`         | Stimmzettel: eine Zeile pro `(round_id, voter_name, book_id)` mit `points` (Anzahl Stimmen für das Buch). |
 | `runoff_books`  | Welche Bücher zu einer Stichwahl-Runde gehören. |
 | `app_state`     | Key-Value-Store; insbesondere `active_round_id`. |
+
+Status einer Runde: `suggestions_open` → `suggestions_closed` → `voting_open` (bzw. `runoff_open` bei Stichwahlen) → `voting_closed` → `finished`.

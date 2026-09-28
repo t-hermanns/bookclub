@@ -85,3 +85,20 @@ body {
   100% { opacity: 1; transform: translateY(0)  scale(1); }
 }
 .animate-pop { animation: pop-in 220ms ease-out both; }
+
+/* Autumn / Halloween theme banner (ThemeBanner.tsx): dusk sky and moon. */
+@keyframes sky-shift {
+  0%   { background-position: 0% 30%; }
+  100% { background-position: 100% 70%; }
+}
+.autumn-dusk {
+  background: linear-gradient(135deg, #2e1065 0%, #6b21a8 30%, #c2410c 72%, #f97316 100%);
+  background-size: 200% 200%;
+  animation: sky-shift 14s ease-in-out infinite alternate, pop-in 220ms ease-out both;
+}
+
+@keyframes moon-glow {
+  0%, 100% { box-shadow: 0 0 24px 6px rgba(254, 243, 199, 0.3); }
+  50%      { box-shadow: 0 0 42px 14px rgba(254, 243, 199, 0.45); }
+}
+.autumn-moon { animation: moon-glow 5s ease-in-out infinite; }

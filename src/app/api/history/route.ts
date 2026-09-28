@@ -1,6 +1,7 @@
 import { ok, requireUser } from '@/lib/api';
 import { bookById, listFinishedRounds, listRoundBooks, tallyVotes } from '@/lib/round';
 import { decisionFor } from '@/lib/state';
+import { sqliteUtcToIso } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,9 @@ export async function GET() {
     return {
       id: r.id,
       number: numbers.get(r.id)!,
-      closedAt: r.closed_at,
+      closedAt: sqliteUtcToIso(r.closed_at),
       votingSystem: r.voting_system,
+      theme: r.theme,
       winner: r.winner_book_id ? publicizeBook(r.winner_book_id, tally) : null,
       books: listRoundBooks(r.id).map((b) => ({
         id: b.id,

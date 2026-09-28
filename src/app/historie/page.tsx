@@ -12,6 +12,7 @@ interface HistoryRound {
   number: number;
   closedAt: string | null;
   votingSystem: string;
+  theme: string | null;
   winner: { id: number; title: string; author: string; link: string; submitter: string; votes: number } | null;
   books: { id: number; title: string; author: string; link: string; submitter: string; votes: number }[];
   decision: Decision;
@@ -54,14 +55,14 @@ export default function HistoriePage() {
         {rounds && rounds.length === 0 && <div className="card">Noch keine abgeschlossenen Runden.</div>}
         {rounds?.map((r) => (
           <div key={r.id} className="card animate-pop space-y-3">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold">Runde #{r.number}</h2>
-                <span className="pill bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {votingSystemLabel(r.votingSystem)}
-                </span>
+            <div>
+              <h2 className="break-words text-lg font-semibold">
+                Runde #{r.number}
+                {r.theme && `: ${r.theme}`}
+              </h2>
+              <div className="text-sm text-slate-500">
+                {fmtDate(r.closedAt)} · {votingSystemLabel(r.votingSystem)}
               </div>
-              <span className="text-sm text-slate-500">{fmtDate(r.closedAt)}</span>
             </div>
             {r.winner && (
               <div className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-500/10 to-pink-500/5 p-3 dark:border-brand-700/40">

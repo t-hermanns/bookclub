@@ -7,6 +7,7 @@ import {
   determineOutcome,
   eligibleVoterCount,
   getActiveRound,
+  getRound,
   getOwnBallot,
   getOwnBook,
   listFinishedRounds,
@@ -22,6 +23,7 @@ import {
   type RoundStatus
 } from './round';
 import { ADMIN_NAME, PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { sqliteUtcToIso } from './db';
 import { configuredVotingSystem, type BallotEntry, type VotingSystem } from './voting';
 
 export interface PublicBook {
@@ -44,6 +46,8 @@ export interface StateDTO {
     suggestionsDeadline: string | null;
     votingDeadline: string | null;
     isRunoff: boolean;
+    /** Theme of the suggestions (set when the round starts); null when there is none. */
+    theme: string | null;
     votingSystem: VotingSystem;
     /** Votes each ballot must add up to (1 for 'single' and in run-offs). */
     votesPerVoter: number;
@@ -129,7 +133,7 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
   }
   return {
     id: r.id,
-    closedAt: r.closed_at,
+    closedAt: sqliteUtcToIso(r.closed_at),
     winner,
     books,
     decision: decisionFor(r),
@@ -218,6 +222,8 @@ export function buildState(user: Participant | null): StateDTO {
 
   // Own-book ownership: own book lives in the suggestion round (the parent for runoffs).
   const submissionRoundId = round.runoff_parent_id ?? round.id;
+  // The theme belongs to the suggestion round; run-offs are child rounds without one.
+  const theme = (isRunoff ? getRound(submissionRoundId)?.theme : round.theme) ?? null;
   const ownBook = getOwnBook(submissionRoundId, user);
   const ownBallot = getOwnBallot(round.id, user);
 
@@ -240,6 +246,7 @@ export function buildState(user: Participant | null): StateDTO {
       suggestionsDeadline: round.suggestions_deadline,
       votingDeadline: round.voting_deadline,
       isRunoff,
+      theme,
       votingSystem: round.voting_system,
       votesPerVoter: votesPerVoter(round),
       submittedCount: countSubmitters(submissionRoundId),

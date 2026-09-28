@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
       `VOTING_SYSTEM hat einen unbekannten Wert („${process.env.VOTING_SYSTEM}“). Erlaubt: ${Object.keys(VOTING_SYSTEMS).join(', ')}.`,
       500
     );
-  const round = startNewRound(r.hours, votingSystem);
+  const theme = typeof (body as any).theme === 'string' ? (body as any).theme.trim() : '';
+  if (theme.length > 100) return err('Das Thema ist zu lang (höchstens 100 Zeichen)');
+  const round = startNewRound(r.hours, votingSystem, theme || null);
   return ok({ ok: true, roundId: round.id });
 }

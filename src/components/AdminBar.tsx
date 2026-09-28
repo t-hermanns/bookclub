@@ -199,6 +199,7 @@ function StartSuggestions({
   label?: string;
 }) {
   const [deadline, setDeadline] = useDefaultDeadline(24 * 7);
+  const [theme, setTheme] = useState('');
   return (
     <div className="space-y-2">
       <p className="text-sm">Aktuell läuft keine Runde.</p>
@@ -212,6 +213,14 @@ function StartSuggestions({
           werden.
         </div>
       )}
+      <label className="block text-sm font-medium">Thema (optional)</label>
+      <input
+        className="input"
+        value={theme}
+        maxLength={100}
+        placeholder="z. B. Herbst & Halloween"
+        onChange={(e) => setTheme(e.target.value)}
+      />
       <label className="block text-sm font-medium">Frist (Datum & Uhrzeit)</label>
       <DeadlinePicker defaultHours={24 * 7} value={deadline} onChange={setDeadline} />
       <div>
@@ -221,7 +230,8 @@ function StartSuggestions({
           onClick={() =>
             onRun(async () => {
               const r = await post('/api/admin/round/start-suggestions', {
-                deadlineAt: localInputToISO(deadline)
+                deadlineAt: localInputToISO(deadline),
+                theme
               });
               if (!r.ok) throw new Error(r.data.error);
             })
