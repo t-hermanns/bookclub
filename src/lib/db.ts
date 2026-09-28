@@ -25,6 +25,15 @@ function hasColumn(db: Database.Database, table: string, column: string): boolea
   return (db.pragma(`table_info(${table})`) as { name: string }[]).some((c) => c.name === column);
 }
 
+/**
+ * SQLite's datetime('now') is UTC but has no zone marker ("2026-09-28 15:39:00"), which browsers
+ * read as local time. Hand timestamps to clients as ISO with "Z" instead.
+ */
+export function sqliteUtcToIso(value: string | null): string | null {
+  if (!value) return null;
+  return /(Z|[+-]\d\d:?\d\d)$/.test(value) ? value : `${value.replace(' ', 'T')}Z`;
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __bookclub_db: Database.Database | undefined;

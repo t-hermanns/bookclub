@@ -23,6 +23,7 @@ import {
   type RoundStatus
 } from './round';
 import { ADMIN_NAME, PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { sqliteUtcToIso } from './db';
 import { configuredVotingSystem, type BallotEntry, type VotingSystem } from './voting';
 
 export interface PublicBook {
@@ -132,7 +133,7 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
   }
   return {
     id: r.id,
-    closedAt: r.closed_at,
+    closedAt: sqliteUtcToIso(r.closed_at),
     winner,
     books,
     decision: decisionFor(r),
