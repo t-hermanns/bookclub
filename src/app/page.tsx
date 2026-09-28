@@ -185,20 +185,15 @@ function StatusBanner({ state }: { state: ReturnType<typeof useAppState>['state'
     finished: 'bg-emerald-600'
   };
   return (
-    <div className="card animate-pop flex flex-wrap items-center justify-between gap-2">
+    <div className="card animate-pop">
       <div className="flex items-center gap-2 text-sm font-medium">
         <span className={`stage-dot ${dot[r.status] ?? 'bg-slate-400'} shadow-[0_0_0_4px_rgba(0,0,0,0.04)]`} />
         {labels[r.status] ?? r.status}
       </div>
-      {r.isRunoff ? (
-        <span className="pill bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-          Stichwahl · 1 Stimme
-        </span>
-      ) : (
-        <span className="pill bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          {votingSystemLabel(r.votingSystem)}
-        </span>
-      )}
+      {/* Aligned with the label above (dot 0.625rem + gap 0.5rem). */}
+      <div className="mt-0.5 pl-[1.125rem] text-xs text-slate-500">
+        {r.isRunoff ? 'Stichwahl · 1 Stimme pro Person' : votingSystemLabel(r.votingSystem)}
+      </div>
     </div>
   );
 }
