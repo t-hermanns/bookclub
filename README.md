@@ -64,3 +64,7 @@ docker cp bookclub:/app/data ./bookclub-backup
 ```
 
 For a guaranteed consistent copy, stop the container first.
+
+## License
+
+[MIT](LICENSE)
