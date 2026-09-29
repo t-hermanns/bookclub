@@ -17,14 +17,14 @@ export function err(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export function requireUser(): Participant | Response {
-  const u = getCurrentUser();
+export async function requireUser(): Promise<Participant | Response> {
+  const u = await getCurrentUser();
   if (!u) return err('Nicht eingeloggt', 401);
   return u;
 }
 
-export function requireAdmin(): Participant | Response {
-  const u = getCurrentUser();
+export async function requireAdmin(): Promise<Participant | Response> {
+  const u = await getCurrentUser();
   if (!u || !isAdmin(u)) return err('Keine Berechtigung', 403);
   return u;
 }

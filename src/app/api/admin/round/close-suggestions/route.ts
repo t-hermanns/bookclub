@@ -11,7 +11,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const u = requireAdmin();
+  const u = await requireAdmin();
   if (u instanceof Response) return u;
   let round = getActiveRound();
   round = applyAutoTransitions(round);

@@ -7,7 +7,7 @@ import { VOTING_SYSTEMS, configuredVotingSystem } from '@/lib/voting';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const u = requireAdmin();
+  const u = await requireAdmin();
   if (u instanceof Response) return u;
   if (getActiveRound()) return err('Es läuft bereits eine Runde');
   const body = await req.json().catch(() => ({}));

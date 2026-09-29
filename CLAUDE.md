@@ -13,7 +13,7 @@ npm install
 npm run dev     # dev server on http://localhost:3000
 npm run build   # next build (standalone output)
 npm run start   # serve the production build
-npm run lint    # next lint (eslint-config-next)
+npm run lint    # eslint . (flat config in eslint.config.mjs, eslint-config-next)
 ```
 
 There is no test suite. The SQLite database is created automatically under `./data/` (override with `DATA_DIR`). For local development copy `.env.example` to `.env.local` (demo names, placeholder secrets).
@@ -27,7 +27,7 @@ There is no test suite. The SQLite database is created automatically under `./da
 
 ## Architecture
 
-Next.js 14 App Router (TypeScript, Tailwind). All server logic lives in route handlers under `src/app/api/**` and shared modules in `src/lib`. The `@/*` path alias maps to `src/*`.
+Next.js 16 App Router (TypeScript, Tailwind, React 19). All server logic lives in route handlers under `src/app/api/**` and shared modules in `src/lib`. The `@/*` path alias maps to `src/*`.
 
 **State machine is the core.** A "round" moves through `RoundStatus` values (`src/lib/round.ts`): `suggestions_open → suggestions_closed → voting_open → voting_closed`, plus `runoff_open` for run-offs, ending in `finished`. `src/lib/round.ts` owns every transition; do not mutate `rounds.status` elsewhere. Run-offs are modeled as **child rounds** (`runoff_parent_id`, which always points at the original suggestion round, even for a run-off of a run-off) that reference — never duplicate — the original books via the `runoff_books` table. **Voting systems** (`src/lib/voting.ts`): every system is a ballot of points per book that must add up to the system's `votesPerVoter` (`single` = 1, `three_votes` = 3, several points on one book allowed); tallies are `SUM(points)`. Each round stores the system it was started with in `rounds.voting_system` (older rows default to `single`), run-offs always use `single`, and the history shows it per round. The multi-vote ballot (`PointsBallot` in `StageCards.tsx`) saves automatically once all votes are placed; an incomplete allocation is never sent, so while someone rearranges their votes the previously saved ballot keeps counting. How a winner was decided (vote / run-off / random) is not stored: `decisionFor` in `src/lib/state.ts` derives it for the history and the last finished round (random is only offered on a tie, so a deciding round that is still tied means the winner was drawn). `finishWithWinner` finishes the original suggestion round and all of its run-offs with the same winner (`init()` in `db.ts` repairs older rows where an earlier run-off in a chain was left at `voting_closed`).
 
@@ -41,7 +41,7 @@ Next.js 14 App Router (TypeScript, Tailwind). All server logic lives in route ha
 
 **Persistence** (`src/lib/db.ts`): synchronous `better-sqlite3`, a single connection cached on `global.__bookclub_db` to survive Next dev hot-reloads. WAL mode + foreign keys are enabled on init; the schema is created idempotently with `CREATE TABLE IF NOT EXISTS` (there are no migration files — schema changes mean editing `init()` and reasoning about existing rows; see the `voting_system` column and the `votes` rebuild there for examples). Backups must include `bookclub.sqlite` plus its `-wal` / `-shm` sidecars.
 
-**Auth** (`src/lib/auth.ts`): no real accounts. Login = pick a name from the list (the state carries `participants`/`adminName` even when logged out, for the login screen); the admin additionally supplies the password. The session is a self-signed HMAC token (`base64url(payload).hmac`) in the `bc_session` httpOnly cookie, valid 5 years. `requireUser` / `requireAdmin` in `src/lib/api.ts` guard the routes and return a `Response` on failure — the calling handler must check `instanceof Response` and return it early.
+**Auth** (`src/lib/auth.ts`): no real accounts. Login = pick a name from the list (the state carries `participants`/`adminName` even when logged out, for the login screen); the admin additionally supplies the password. The session is a self-signed HMAC token (`base64url(payload).hmac`) in the `bc_session` httpOnly cookie, valid 5 years. `requireUser` / `requireAdmin` in `src/lib/api.ts` guard the routes; they are async (Next's `cookies()` is async since Next 15), so handlers `await` them. On failure they return a `Response` — the calling handler must check `instanceof Response` and return it early.
 
 ## Conventions
 

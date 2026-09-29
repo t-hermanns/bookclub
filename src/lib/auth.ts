@@ -78,8 +78,8 @@ export function checkAdminPassword(pw: string): boolean {
   return expected !== null && safeEqual(pw, expected);
 }
 
-export function getCurrentUser(): Participant | null {
-  const c = cookies().get(COOKIE_NAME);
+export async function getCurrentUser(): Promise<Participant | null> {
+  const c = (await cookies()).get(COOKIE_NAME);
   return verifyToken(c?.value);
 }
 
@@ -87,8 +87,8 @@ export function isAdmin(name: Participant | null): boolean {
   return name !== null && name === adminName();
 }
 
-export function setSessionCookie(name: Participant) {
-  cookies().set(COOKIE_NAME, makeToken(name), {
+export async function setSessionCookie(name: Participant) {
+  (await cookies()).set(COOKIE_NAME, makeToken(name), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -97,6 +97,6 @@ export function setSessionCookie(name: Participant) {
   });
 }
 
-export function clearSessionCookie() {
-  cookies().delete(COOKIE_NAME);
+export async function clearSessionCookie() {
+  (await cookies()).delete(COOKIE_NAME);
 }

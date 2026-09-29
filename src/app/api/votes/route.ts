@@ -28,7 +28,7 @@ function parseBallot(body: any): BallotEntry[] | null {
 }
 
 export async function POST(req: NextRequest) {
-  const u = requireUser();
+  const u = await requireUser();
   if (u instanceof Response) return u;
 
   let round = getActiveRound();

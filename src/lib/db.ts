@@ -35,7 +35,6 @@ export function sqliteUtcToIso(value: string | null): string | null {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __bookclub_db: Database.Database | undefined;
 }
 

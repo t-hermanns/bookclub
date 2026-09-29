@@ -12,6 +12,6 @@ export async function POST(req: NextRequest) {
     if (!adminPasswordConfigured()) return err('Das Admin-Passwort ist nicht eingerichtet (ADMIN_PASSWORD).', 500);
     if (!password || !checkAdminPassword(password)) return err('Falsches Passwort', 401);
   }
-  setSessionCookie(name);
+  await setSessionCookie(name);
   return ok({ ok: true, name });
 }
