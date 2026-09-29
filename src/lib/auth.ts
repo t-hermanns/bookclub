@@ -1,15 +1,15 @@
 import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
-import { ADMIN_NAME, isParticipant, type Participant } from './participants';
+import { adminName, isParticipant, type Participant } from './participants';
 
 const COOKIE_NAME = 'bc_session';
 const DEV_SECRET = 'dev-insecure-secret-change-me';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'change-me';
 
-// Well-known placeholders (dev default, docker-compose.yml / .env.example examples).
-// Anyone who knows the secret can forge a session for any name, including the admin.
-const PLACEHOLDER_SECRETS = new Set([
+// Well-known placeholders (dev default, .env.example). Production refuses them like a missing
+// value: whoever knows the secret can forge a session for any name, including the admin.
+const PLACEHOLDERS = new Set([
   DEV_SECRET,
+  'change-me',
   'please-change-me',
   'please-change-me-to-a-long-random-string'
 ]);
@@ -20,9 +20,9 @@ let secret: string | null = null;
 function getSecret(): string {
   if (secret) return secret;
   const s = process.env.SESSION_SECRET;
-  if (process.env.NODE_ENV === 'production' && (!s || PLACEHOLDER_SECRETS.has(s))) {
+  if (process.env.NODE_ENV === 'production' && (!s || PLACEHOLDERS.has(s))) {
     throw new Error(
-      'SESSION_SECRET ist nicht gesetzt oder ein Platzhalter. In Produktion einen eigenen Zufallswert setzen (z. B. `openssl rand -hex 32`).'
+      'SESSION_SECRET is not set or a placeholder. Set your own random value in production (e.g. `openssl rand -hex 32`).'
     );
   }
   secret = s || DEV_SECRET;
@@ -57,8 +57,25 @@ export function verifyToken(token: string | undefined | null): Participant | nul
   return null;
 }
 
+/**
+ * The admin password has no default. Production refuses a missing or placeholder value (like
+ * SESSION_SECRET); elsewhere a missing one just means the admin can't log in.
+ */
+function getAdminPassword(): string | null {
+  const pw = process.env.ADMIN_PASSWORD;
+  const production = process.env.NODE_ENV === 'production';
+  if (pw && !(production && PLACEHOLDERS.has(pw))) return pw;
+  if (production) throw new Error('ADMIN_PASSWORD is not set or a placeholder.');
+  return null;
+}
+
+export function adminPasswordConfigured(): boolean {
+  return getAdminPassword() !== null;
+}
+
 export function checkAdminPassword(pw: string): boolean {
-  return safeEqual(pw, ADMIN_PASSWORD);
+  const expected = getAdminPassword();
+  return expected !== null && safeEqual(pw, expected);
 }
 
 export function getCurrentUser(): Participant | null {
@@ -67,7 +84,7 @@ export function getCurrentUser(): Participant | null {
 }
 
 export function isAdmin(name: Participant | null): boolean {
-  return name === ADMIN_NAME;
+  return name !== null && name === adminName();
 }
 
 export function setSessionCookie(name: Participant) {

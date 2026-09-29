@@ -1,5 +1,5 @@
 import { getDb } from './db';
-import { TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { totalParticipants, type Participant } from './participants';
 import { VOTING_SYSTEMS, type BallotEntry, type VotingSystem } from './voting';
 
 export type RoundStatus =
@@ -118,7 +118,7 @@ export function tallyVotes(roundId: number): Map<number, number> {
 
 /** Eligible voters for a round: all participants, both for the original voting and for run-offs. */
 export function eligibleVoterCount(_round: Round): number {
-  return TOTAL_PARTICIPANTS;
+  return totalParticipants();
 }
 
 export function getOwnBook(roundId: number, name: Participant): Book | null {
@@ -269,7 +269,7 @@ export function applyAutoTransitions(round: Round | null): Round | null {
   if (!round) return round;
   // Auto-close suggestions when all participants have submitted.
   if (round.status === 'suggestions_open') {
-    if (countSubmitters(round.id) >= TOTAL_PARTICIPANTS) {
+    if (countSubmitters(round.id) >= totalParticipants()) {
       closeSuggestions(round.id);
       return getRound(round.id);
     }

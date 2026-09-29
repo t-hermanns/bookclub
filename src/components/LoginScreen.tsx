@@ -1,9 +1,16 @@
 'use client';
 import { useState } from 'react';
-import { PARTICIPANTS, ADMIN_NAME } from '@/lib/participants';
 import type { Participant } from '@/lib/participants';
 
-export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
+export function LoginScreen({
+  participants,
+  adminName,
+  onLoggedIn
+}: {
+  participants: Participant[];
+  adminName: Participant;
+  onLoggedIn: () => void;
+}) {
   const [selected, setSelected] = useState<Participant | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState('');
@@ -18,7 +25,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: selected, password: selected === ADMIN_NAME ? password : undefined })
+        body: JSON.stringify({ name: selected, password: selected === adminName ? password : undefined })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Login fehlgeschlagen');
@@ -42,7 +49,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {PARTICIPANTS.map((n) => (
+            {participants.map((n) => (
               <button
                 key={n}
                 onClick={() => {
@@ -68,7 +75,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
           <strong>Achtung:</strong> Diese Auswahl ist endgültig — du kannst dich später nicht
           mehr als andere Person anmelden. Wähle nur, wenn du wirklich {selected} bist.
         </div>
-        {selected === ADMIN_NAME && (
+        {selected === adminName && (
           <div>
             <label className="mb-1 block text-sm font-medium">Passwort</label>
             <input

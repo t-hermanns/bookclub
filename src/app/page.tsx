@@ -26,7 +26,7 @@ export default function Home() {
     return (
       <>
         <Header userName={null} isAdmin={false} />
-        <LoginScreen onLoggedIn={onLoggedIn} />
+        <LoginScreen participants={state.participants} adminName={state.adminName} onLoggedIn={onLoggedIn} />
       </>
     );
   }
@@ -62,7 +62,11 @@ export default function Home() {
           <>
             <ThemeBanner theme={round.theme} />
             <SubmissionCard state={round} refresh={refresh} />
-            <ParticipationRoster doneNames={round.submittedNames} title="Wer hat eingereicht?" />
+            <ParticipationRoster
+              participants={state.participants}
+              doneNames={round.submittedNames}
+              title="Wer hat eingereicht?"
+            />
           </>
         )}
 
@@ -77,7 +81,11 @@ export default function Home() {
         {(round?.status === 'voting_open' || round?.status === 'runoff_open') && (
           <>
             <VotingCard state={round} refresh={refresh} />
-            <ParticipationRoster doneNames={round.votedNames} title="Wer hat abgestimmt?" />
+            <ParticipationRoster
+              participants={state.participants}
+              doneNames={round.votedNames}
+              title="Wer hat abgestimmt?"
+            />
           </>
         )}
 

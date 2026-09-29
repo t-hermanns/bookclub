@@ -22,7 +22,7 @@ import {
   type Round,
   type RoundStatus
 } from './round';
-import { ADMIN_NAME, PARTICIPANTS, TOTAL_PARTICIPANTS, type Participant } from './participants';
+import { adminName, participants, totalParticipants, type Participant } from './participants';
 import { sqliteUtcToIso } from './db';
 import { configuredVotingSystem, type BallotEntry, type VotingSystem } from './voting';
 
@@ -37,6 +37,9 @@ export interface PublicBook {
 
 export interface StateDTO {
   user: { name: Participant | null; isAdmin: boolean };
+  /** Everyone who can log in, in the configured order (login list and rosters). */
+  participants: Participant[];
+  adminName: Participant;
   totalParticipants: number;
   /** System a round started now would use (shown to the admin); null if VOTING_SYSTEM is invalid. */
   newRoundVotingSystem: VotingSystem | null;
@@ -141,29 +144,23 @@ function lastFinished(): StateDTO['lastFinishedRound'] {
   };
 }
 
+/** Fields every state carries, logged in or not (the login screen needs the names). */
+function baseState(user: Participant | null) {
+  return {
+    user: { name: user, isAdmin: user !== null && user === adminName() },
+    participants: [...participants()],
+    adminName: adminName(),
+    totalParticipants: totalParticipants(),
+    newRoundVotingSystem: configuredVotingSystem()
+  };
+}
+
 export function buildState(user: Participant | null): StateDTO {
-  // Logged-out visitors only learn that they need to log in: no round, books or names.
-  if (!user) {
-    return {
-      user: { name: null, isAdmin: false },
-      totalParticipants: TOTAL_PARTICIPANTS,
-      newRoundVotingSystem: configuredVotingSystem(),
-      round: null,
-      lastFinishedRound: null
-    };
-  }
-  const isAdmin = user === ADMIN_NAME;
+  // Logged-out visitors only get what the login screen needs: no round, books or history.
+  if (!user) return { ...baseState(null), round: null, lastFinishedRound: null };
   let round: Round | null = getActiveRound();
   round = applyAutoTransitions(round);
-  if (!round) {
-    return {
-      user: { name: user, isAdmin },
-      totalParticipants: TOTAL_PARTICIPANTS,
-      newRoundVotingSystem: configuredVotingSystem(),
-      round: null,
-      lastFinishedRound: lastFinished()
-    };
-  }
+  if (!round) return { ...baseState(user), round: null, lastFinishedRound: lastFinished() };
   const isRunoff = !!round.runoff_parent_id;
   const candidates = candidateBookIds(round);
   const allBooks = isRunoff
@@ -233,13 +230,11 @@ export function buildState(user: Participant | null): StateDTO {
   // against the books list to reveal who submitted which book.
   const submittedSet = new Set(listSubmitterNames(submissionRoundId));
   const votedSet = new Set(listVoterNames(round.id));
-  const submittedNames = PARTICIPANTS.filter((p) => submittedSet.has(p));
-  const votedNames = PARTICIPANTS.filter((p) => votedSet.has(p));
+  const submittedNames = participants().filter((p) => submittedSet.has(p));
+  const votedNames = participants().filter((p) => votedSet.has(p));
 
   return {
-    user: { name: user, isAdmin },
-    totalParticipants: TOTAL_PARTICIPANTS,
-    newRoundVotingSystem: configuredVotingSystem(),
+    ...baseState(user),
     round: {
       id: round.id,
       status: round.status,

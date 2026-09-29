@@ -1,5 +1,4 @@
 'use client';
-import { PARTICIPANTS } from '@/lib/participants';
 
 /**
  * Standalone card listing every participant with a green check (has acted) or a
@@ -7,9 +6,11 @@ import { PARTICIPANTS } from '@/lib/participants';
  * someone voted — only who has participated.
  */
 export function ParticipationRoster({
+  participants,
   doneNames,
   title
 }: {
+  participants: string[];
   doneNames: string[];
   title: string;
 }) {
@@ -18,7 +19,7 @@ export function ParticipationRoster({
     <div className="card space-y-3">
       <h2 className="text-lg font-semibold">{title}</h2>
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {PARTICIPANTS.map((n) => {
+        {participants.map((n) => {
           const ok = done.has(n);
           return (
             <li

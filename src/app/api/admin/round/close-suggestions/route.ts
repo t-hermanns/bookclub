@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { err, ok, requireAdmin } from '@/lib/api';
-import { TOTAL_PARTICIPANTS } from '@/lib/participants';
+import { totalParticipants } from '@/lib/participants';
 import {
   applyAutoTransitions,
   closeSuggestions,
@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const force = !!(body as any).force;
   const submitted = countSubmitters(round.id);
-  if (submitted < TOTAL_PARTICIPANTS && !force) {
+  const total = totalParticipants();
+  if (submitted < total && !force) {
     return err(
-      `Nur ${submitted}/${TOTAL_PARTICIPANTS} haben eingereicht. Bitte mit force=true bestätigen.`,
+      `Nur ${submitted}/${total} haben eingereicht. Bitte mit force=true bestätigen.`,
       409
     );
   }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Small German-language web app for a book club: members submit book suggestions, vote anonymously, resolve ties via run-offs, and browse history. One admin drives the round lifecycle with a password. The participant list is hard-wired in `src/lib/participants.ts`; `TOTAL_PARTICIPANTS` is derived from the array length, so counts and auto-close thresholds follow the array — update the array, not magic numbers.
+Small German-language web app for a book club: members submit book suggestions, vote anonymously, resolve ties via run-offs, and browse history. One admin drives the round lifecycle with a password. Participants and the admin come from the environment (`PARTICIPANTS`, `ADMIN_NAME`), read lazily in `src/lib/participants.ts`; counts and auto-close thresholds follow `totalParticipants()`. **Never put real names, passwords, domains or host details into the code, docs or commit messages** — the repository is public.
 
 ## Commands
 
@@ -16,11 +16,12 @@ npm run start   # serve the production build
 npm run lint    # next lint (eslint-config-next)
 ```
 
-There is no test suite. The SQLite database is created automatically under `./data/` (override with `DATA_DIR`).
+There is no test suite. The SQLite database is created automatically under `./data/` (override with `DATA_DIR`). For local development copy `.env.example` to `.env.local` (demo names, placeholder secrets).
 
 ### Environment variables
 - `SESSION_SECRET` — HMAC key for the auth cookie. Falls back to an insecure dev default outside production; in production (`NODE_ENV=production`) an unset or placeholder value makes `getSecret()` in `src/lib/auth.ts` throw on first use, and `docker-compose.yml` refuses to start without it.
-- `ADMIN_PASSWORD` — admin password (default `change-me`).
+- `PARTICIPANTS` — comma-separated names of everyone who can log in (display order); `ADMIN_NAME` — the admin, one of them. Required everywhere; missing/invalid values make `participants.ts` throw on first use, and `docker-compose.yml` refuses to start without them. Names are stored as plain strings in the database, so renaming someone orphans their rows.
+- `ADMIN_PASSWORD` — admin password, no default. Production refuses a missing or placeholder value like `SESSION_SECRET`; in development a missing one only blocks the admin login.
 - `VOTING_SYSTEM` — voting system for **new** rounds: `single` (default) or `three_votes`; see `src/lib/voting.ts`. An unknown value blocks starting a round (the admin sees a warning).
 - `DATA_DIR` — SQLite directory (default `./data`).
 
@@ -40,7 +41,7 @@ Next.js 14 App Router (TypeScript, Tailwind). All server logic lives in route ha
 
 **Persistence** (`src/lib/db.ts`): synchronous `better-sqlite3`, a single connection cached on `global.__bookclub_db` to survive Next dev hot-reloads. WAL mode + foreign keys are enabled on init; the schema is created idempotently with `CREATE TABLE IF NOT EXISTS` (there are no migration files — schema changes mean editing `init()` and reasoning about existing rows; see the `voting_system` column and the `votes` rebuild there for examples). Backups must include `bookclub.sqlite` plus its `-wal` / `-shm` sidecars.
 
-**Auth** (`src/lib/auth.ts`): no real accounts. Login = pick a name from the list; the admin additionally supplies the password. The session is a self-signed HMAC token (`base64url(payload).hmac`) in the `bc_session` httpOnly cookie, valid 5 years. `requireUser` / `requireAdmin` in `src/lib/api.ts` guard the routes and return a `Response` on failure — the calling handler must check `instanceof Response` and return it early.
+**Auth** (`src/lib/auth.ts`): no real accounts. Login = pick a name from the list (the state carries `participants`/`adminName` even when logged out, for the login screen); the admin additionally supplies the password. The session is a self-signed HMAC token (`base64url(payload).hmac`) in the `bc_session` httpOnly cookie, valid 5 years. `requireUser` / `requireAdmin` in `src/lib/api.ts` guard the routes and return a `Response` on failure — the calling handler must check `instanceof Response` and return it early.
 
 ## Conventions
 
@@ -50,4 +51,4 @@ Next.js 14 App Router (TypeScript, Tailwind). All server logic lives in route ha
 
 ## Deployment
 
-Multi-stage `Dockerfile` producing a Next standalone image; `better-sqlite3` is compiled during `npm ci` (build deps present in the `deps` stage), so it builds natively on the target arch (e.g. arm64). `docker-compose.yml` stores `/app/data` in the named volume `bookclub_data` (Compose prefixes the project/stack name, e.g. `bookclub_bookclub_data`). See `README.md` for the Portainer setup and instructions for inspecting the SQLite file directly.
+Multi-stage `Dockerfile` producing a Next standalone image; `better-sqlite3` is compiled during `npm ci` (build deps present in the `deps` stage), so it builds natively on the target arch (amd64 or arm64). `docker-compose.yml` requires the variables above and stores `/app/data` in the named volume `bookclub_data` (Compose prefixes the project name, e.g. `bookclub_bookclub_data`). Keep deployment docs generic — no hosts, domains, tunnels or paths of a particular machine.

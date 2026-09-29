@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  adminPasswordConfigured,
   checkAdminPassword,
   getCurrentUser,
   isAdmin,
@@ -28,4 +29,4 @@ export function requireAdmin(): Participant | Response {
   return u;
 }
 
-export { checkAdminPassword, setSessionCookie, clearSessionCookie };
+export { adminPasswordConfigured, checkAdminPassword, setSessionCookie, clearSessionCookie };

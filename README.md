@@ -1,131 +1,66 @@
-# Bookclub Voting
+# Bookclub
 
-Kleine Web-App für unseren Bookclub: Buchvorschläge, anonyme Abstimmung, Stichwahlen, Historie. UI auf Deutsch. Fest verdrahtete Teilnehmer:innen, ein Admin mit Passwort.
+A small web app our book club uses to pick the next book: members suggest books, vote anonymously, settle ties with run-offs and look back at past rounds. The UI is in German.
 
-## Stack
-- Next.js 14 (App Router, TypeScript)
-- Tailwind CSS, Light/Dark-Mode
-- SQLite via `better-sqlite3` (lokal unter `./data/`, im Betrieb im Docker-Volume)
-- Polling (5s) für Live-Updates
+## Features
 
-## Lokale Entwicklung
+- **Suggestions**: everyone submits one book (title, author, link) and can edit it until voting starts. Books stay anonymous; a roster shows *who* has submitted, never *what*.
+- **Voting**: one vote or three votes per person (configurable, three can be stacked on one book), never for your own book. Voting closes automatically once everyone has voted; the admin can close earlier.
+- **Ties**: the admin starts a run-off (one vote each, own book allowed) or draws the winner at random.
+- **Themes**: an optional theme per round, shown as a banner while suggestions are open.
+- **History**: every finished round with its tallies, who suggested what, how the winner was decided and the run-off results.
+- Mobile-first, light and dark mode.
+
+Login is deliberately simple for a small, trusted group: you pick your name from the list. Only the admin additionally needs a password.
+
+## How it works
+
+- **Next.js 14** (App Router, TypeScript, Tailwind) with route handlers as the API and **SQLite** (`better-sqlite3`) for storage.
+- A round is a small state machine (`suggestions_open → suggestions_closed → voting_open → voting_closed → finished`); run-offs are child rounds that reference the original books.
+- A single read model (`src/lib/state.ts`) builds everything the client sees and enforces what stays hidden when (books during suggestions, tallies while voting, submitters until a round is finished).
+- The client polls the state every 5 seconds; stages close lazily on the next request once everyone has acted. There is no background job.
+- The schema is created and migrated in place on startup.
+
+## Getting started
 
 ```bash
+cp .env.example .env.local
 npm install
 npm run dev   # http://localhost:3000
 ```
 
-Datenbank wird automatisch unter `./data/` angelegt.
+Log in with one of the names from `PARTICIPANTS`; the admin (`ADMIN_NAME`) also enters `ADMIN_PASSWORD`. The database is created under `./data/`.
 
-Umgebungsvariablen (siehe `.env.example`; für die lokale Entwicklung alle optional):
-- `SESSION_SECRET` – Signiert das Auth-Cookie. **In Produktion Pflicht:** Fehlt die Variable, startet `docker compose` nicht; steht noch ein Platzhalter wie in `.env.example` drin, verweigert die App Anmeldung und alle Inhalte. Wer den Wert kennt, kann sich als beliebige Person anmelden – auch als Admin.
-- `ADMIN_PASSWORD` – Admin-Passwort (Default: `change-me`).
-- `VOTING_SYSTEM` – Abstimmungssystem für **neue** Runden: `single` (1 Stimme pro Person, Default) oder `three_votes` (3 Stimmen pro Person). Eine laufende Runde behält ihr System; der Admin sieht vor dem Start, welches gilt.
-- `DATA_DIR` – Pfad zum SQLite-Verzeichnis (Default: `./data`).
+Other scripts: `npm run build`, `npm run start`, `npm run lint`.
 
-## Deployment (Portainer)
+## Configuration
 
-Das Image wird mit dem mitgelieferten `Dockerfile` gebaut und über `docker-compose.yml` gestartet. Auf arm64 baut alles nativ; `better-sqlite3` wird beim `npm ci` kompiliert.
+| Variable | Required | Description |
+|---|---|---|
+| `SESSION_SECRET` | in production | Signs the session cookie. Production refuses a missing or placeholder value. |
+| `PARTICIPANTS` | yes | Comma-separated list of everyone who can log in, in display order. |
+| `ADMIN_NAME` | yes | The admin; must be one of `PARTICIPANTS`. |
+| `ADMIN_PASSWORD` | yes | The admin's password. There is no default; production refuses a placeholder. |
+| `VOTING_SYSTEM` | no | `single` (default) or `three_votes`. Applies to rounds started afterwards. |
+| `DATA_DIR` | no | Directory of the SQLite database (default `./data`). |
 
-### Variante A: Direkt mit docker compose
+## Deployment
+
+The repository ships a multi-stage `Dockerfile` (Next.js standalone output; builds natively on amd64 and arm64) and a `docker-compose.yml`:
 
 ```bash
-git clone <repo> bookclub && cd bookclub
-cp .env.example .env  # SESSION_SECRET ändern!
+cp .env.example .env   # then set real values
 docker compose up -d --build
 ```
 
-Die SQLite-Datenbank liegt persistent im Docker-Volume `bookclub_data`. Compose stellt dem Namen den Projektnamen voran, hier also `bookclub_bookclub_data` (`docker volume ls | grep bookclub`).
+Compose refuses to start while a required variable is missing. The app listens on port 3000; put it behind a reverse proxy that terminates TLS. The database lives in the named volume `bookclub_data` and survives rebuilds.
 
-### Variante B: Stack in Portainer
+### Backups
 
-Die `docker-compose.yml` baut das Image selbst (`build: .`), Portainer braucht also den Code aus dem Git-Repo – über den Web-Editor eingefügt fehlt der Build-Kontext.
-
-1. In Portainer **Stacks → Add stack**, Build method **Repository**.
-2. Repository-URL dieses Repos, Reference `refs/heads/master`, Compose path `docker-compose.yml`. Da das Repo privat ist: **Authentication** mit GitHub-Benutzername und einem Personal Access Token.
-3. Unter "Environment variables" `SESSION_SECRET` (Pflicht) und ggf. `ADMIN_PASSWORD` und `VOTING_SYSTEM` setzen.
-4. Updates danach per **Pull and redeploy**.
-5. Die Datenbank landet im Named Volume `<stackname>_bookclub_data` (Portainer → **Volumes**). Es bleibt bei Redeploys erhalten.
-
-## Funktionsumfang
-
-- **Login**: Name aus Liste auswählen + bestätigen, im Browser dauerhaft gespeichert (Cookie). Der Admin bestätigt zusätzlich mit Passwort.
-- **Thema**: Der Admin kann beim Start einer Runde optional ein Thema eintragen (z. B. „Herbst & Halloween“). Es steht als Banner über den Vorschlägen, solange Vorschläge laufen bzw. geschlossen sind (bei Herbst-/Halloween-Themen als animierter Abendhimmel mit Mond); ohne Thema erscheint nichts.
-- **Buchvorschläge**: Titel, Autor:in, Link. Anonym; jede:r kann seinen Vorschlag bis Abstimmungsstart ändern. Sichtbar ist, **wer** schon eingereicht hat und wer noch aussteht (aber nicht was).
-- **Vorschläge schließen**: automatisch wenn alle vorliegen, sonst jederzeit manuell durch den Admin (Warn-Dialog wenn unvollständig) — auch schon vor Ablauf der Frist.
-- **Fristen** sind nur ein Richtwert: Nach Ablauf zeigt die App "Frist abgelaufen", schließt aber nichts automatisch. Solange nicht alle mitgemacht haben, muss der Admin manuell schließen.
-- **Phase "Vorschläge geschlossen"**: alle sehen die Bücher anonym. Eigene Vorschläge bleiben editierbar. Der Admin sieht Hinweis-Banner.
-- **Abstimmung**: anonym, kein Vote auf eigenes Buch. Je nach `VOTING_SYSTEM` hat jede:r **1 Stimme** oder **3 Stimmen**; bei 3 Stimmen müssen alle drei vergeben werden, auch mehrere (oder alle) für dasselbe Buch. Gespeichert wird automatisch, sobald alle drei verteilt sind; wer danach umverteilt, behält bis zur nächsten vollständigen Verteilung seine vorherige Auswahl. Das System wird beim Start der Runde festgelegt und bei der Runde sowie in der Historie angezeigt. Sichtbar ist, **wer** schon abgestimmt hat und wer noch aussteht (aber nicht wofür). Auto-Close wenn alle abgestimmt haben, sonst jederzeit manuell durch den Admin.
-- **Stichwahl**: bei Gleichstand kann der Admin eine Stichwahl starten (default 8 h). In der Stichwahl hat jede:r immer 1 Stimme. In Stichwahlen darf für eigene Bücher gestimmt werden – Banner informiert die Betroffenen. Beliebig viele Stichwahlen möglich. Sind alle verbleibenden Bücher gleichauf, ist nur noch Zufallsauswahl möglich.
-- **Zufallsauswahl**: Der Admin wählt aktiv per Knopfdruck einen zufälligen Gewinner aus den gleichauf liegenden Büchern.
-- **Historie**: alle abgeschlossenen Runden mit Bücherliste, Stimmen und – jetzt offengelegten – Einreicher:innen. Wurde der Gewinner per Stichwahl oder Zufall bestimmt, steht das am Gewinner; die Ergebnisse jeder Stichwahl lassen sich aufklappen.
-
-## Backup
-
-Der einzige Zustand ist der Datenordner `/app/data` im Volume: `bookclub.sqlite` plus `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Immer alle drei sichern – die letzten Änderungen stehen oft noch in der `-wal`-Datei.
+The state is the data directory: `bookclub.sqlite` plus its `-wal` and `-shm` files. Copy all of them, e.g.:
 
 ```bash
-# kompletten Datenordner aus dem Container auf den Host kopieren
-docker cp bookclub:/app/data ./bookclub-backup-$(date +%F)
+docker cp bookclub:/app/data ./bookclub-backup
 ```
 
-Für ein garantiert konsistentes Backup die App vorher kurz stoppen (`docker stop bookclub`) und danach wieder starten (`docker start bookclub`).
-
-## Datenbank manuell einsehen / bearbeiten
-
-- Lokal (`npm run dev`): `./data/bookclub.sqlite`
-- Im Container: `/app/data/bookclub.sqlite`
-- Auf dem Host im Volume: `/var/lib/docker/volumes/<stackname>_bookclub_data/_data/bookclub.sqlite` (nur mit `sudo` lesbar; `docker volume inspect <name>` zeigt den genauen Pfad)
-
-### Kopie ansehen (am einfachsten)
-
-```bash
-# einmalig: sqlite3 installieren
-sudo apt install sqlite3
-
-# ganzen Ordner kopieren (inkl. -wal, sonst fehlen evtl. die neuesten Änderungen)
-docker cp bookclub:/app/data ./bookclub-snapshot
-sqlite3 ./bookclub-snapshot/bookclub.sqlite
-
-# nützliche Befehle in der Shell:
-.tables
-.schema rounds
-.headers on
-.mode column
-SELECT * FROM rounds;
-SELECT * FROM books ORDER BY round_id;
-SELECT round_id, voter_name, book_id, points FROM votes;
-.quit
-```
-
-### Im laufenden Container bearbeiten
-
-Das Image basiert auf Debian (`node:20-bookworm-slim`) und läuft als Benutzer `nextjs`; `sqlite3` ist nicht enthalten. Zum Installieren braucht es root (die Installation ist nach dem nächsten Redeploy wieder weg):
-
-```bash
-docker exec -u root bookclub sh -c 'apt-get update && apt-get install -y sqlite3'
-# danach als normaler Benutzer öffnen, damit neue Dateien weiter `nextjs` gehören
-docker exec -it bookclub sqlite3 /app/data/bookclub.sqlite
-```
-
-### Mit GUI
-
-Die kopierte Snapshot-Datei (bzw. lokal `./data/bookclub.sqlite`) lässt sich auch mit [DB Browser for SQLite](https://sqlitebrowser.org/) oder JetBrains DataGrip öffnen — einfach als „Open database" laden.
-
-### Wichtig: Schreibzugriff & WAL
-
-- Die Datenbank läuft im WAL-Modus — neben `bookclub.sqlite` liegen `bookclub.sqlite-wal` und `bookclub.sqlite-shm`. Beim Kopieren und Sichern also immer alle drei mitnehmen.
-- Änderungen an einer *Kopie* landen nicht in der App. Zum Bearbeiten entweder im Container arbeiten (siehe oben) oder die App stoppen (`docker stop bookclub`), die Dateien im Volume bearbeiten und wieder starten.
-- Wer direkt im Volume als root arbeitet: Neu angelegte Dateien gehören dann root und die App kann sie nicht mehr schreiben – vor dem Start `sudo chown 1001:1001 /var/lib/docker/volumes/<stackname>_bookclub_data/_data/*`.
-
-### Tabellen-Übersicht
-
-| Tabelle         | Zweck |
-|-----------------|-------|
-| `rounds`        | Eine Zeile pro Vorschlags-Runde; Stichwahlen sind eigene Zeilen mit `runoff_parent_id` auf die Vorschlags-Runde. Dazu `status`, Deadlines, `winner_book_id`, `voting_system`, `theme` (optional). |
-| `books`         | Bücher pro Suggestion-Runde mit `submitter_name`. |
-| `votes`         | Stimmzettel: eine Zeile pro `(round_id, voter_name, book_id)` mit `points` (Anzahl Stimmen für das Buch). |
-| `runoff_books`  | Welche Bücher zu einer Stichwahl-Runde gehören. |
-| `app_state`     | Key-Value-Store; insbesondere `active_round_id`. |
-
-Status einer Runde: `suggestions_open` → `suggestions_closed` → `voting_open` (bzw. `runoff_open` bei Stichwahlen) → `voting_closed` → `finished`.
+For a guaranteed consistent copy, stop the container first.
