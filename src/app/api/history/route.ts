@@ -6,7 +6,7 @@ import { sqliteUtcToIso } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const u = requireUser();
+  const u = await requireUser();
   if (u instanceof Response) return u;
   // Run-offs are shown inside their original round (see decisionFor), not as entries of their own.
   const rounds = listFinishedRounds().filter((r) => !r.runoff_parent_id);

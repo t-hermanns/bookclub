@@ -15,7 +15,7 @@ Login is deliberately simple for a small, trusted group: you pick your name from
 
 ## How it works
 
-- **Next.js 14** (App Router, TypeScript, Tailwind) with route handlers as the API and **SQLite** (`better-sqlite3`) for storage.
+- **Next.js 16** (App Router, TypeScript, Tailwind) with route handlers as the API and **SQLite** (`better-sqlite3`) for storage.
 - A round is a small state machine (`suggestions_open → suggestions_closed → voting_open → voting_closed → finished`); run-offs are child rounds that reference the original books.
 - A single read model (`src/lib/state.ts`) builds everything the client sees and enforces what stays hidden when (books during suggestions, tallies while voting, submitters until a round is finished).
 - The client polls the state every 5 seconds; stages close lazily on the next request once everyone has acted. There is no background job.

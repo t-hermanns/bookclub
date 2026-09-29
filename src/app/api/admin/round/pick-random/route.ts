@@ -10,7 +10,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  const u = requireAdmin();
+  const u = await requireAdmin();
   if (u instanceof Response) return u;
   const round = getActiveRound();
   if (!round || round.status !== 'voting_closed')

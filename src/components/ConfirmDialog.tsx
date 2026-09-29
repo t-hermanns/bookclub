@@ -21,6 +21,8 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
+  // The portal needs document.body, which only exists after hydration.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
   if (!open || !mounted) return null;
   return createPortal(

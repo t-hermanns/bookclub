@@ -5,6 +5,6 @@ import { ok } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   return ok(buildState(user));
 }

@@ -14,6 +14,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = (localStorage.getItem('theme') as Theme | null) ?? null;
     const initial: Theme =
       stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    // localStorage and matchMedia only exist in the browser, so the theme is read after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(initial);
     document.documentElement.classList.toggle('dark', initial === 'dark');
   }, []);
