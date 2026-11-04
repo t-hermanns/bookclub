@@ -84,6 +84,13 @@ function init(db: Database.Database) {
   if (!hasColumn(db, 'rounds', 'theme')) {
     db.exec(`ALTER TABLE rounds ADD COLUMN theme TEXT`);
   }
+  // Book identity for duplicate checks (ISBN-13 and Open Library work key, both best effort).
+  if (!hasColumn(db, 'books', 'isbn')) {
+    db.exec(`ALTER TABLE books ADD COLUMN isbn TEXT`);
+  }
+  if (!hasColumn(db, 'books', 'work_key')) {
+    db.exec(`ALTER TABLE books ADD COLUMN work_key TEXT`);
+  }
   // ...and `votes` allowed a single row per voter (UNIQUE(round_id, voter_name)). SQLite can't
   // change a constraint in place, so rebuild the table; each old vote becomes one point.
   if (!hasColumn(db, 'votes', 'points')) {

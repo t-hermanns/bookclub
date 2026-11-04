@@ -31,6 +31,8 @@ export interface Book {
   author: string;
   link: string;
   submitter_name: string;
+  isbn: string | null;
+  work_key: string | null;
   created_at: string;
   updated_at: string;
 }
