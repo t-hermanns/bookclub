@@ -4,12 +4,14 @@
  * both sides are cleaned up and compared by edit distance and token overlap. Pure functions.
  */
 
-export type MatchLevel = 'block' | 'warn';
-
-export interface MatchResult {
-  level: MatchLevel;
-  /** 'same_author' = same author, different title: possibly a translation / other edition. */
-  reason: 'same_book' | 'similar' | 'same_author';
+/** What the catalogues know about a book, to recognise translations of it. */
+export interface BookIdentity {
+  /** Open Library works: editions and translations of a book share one. */
+  workKeys: string[];
+  /** Original titles the German National Library lists for its German editions. */
+  originalTitles: string[];
+  /** Wikidata items, whose labels cover several languages. */
+  wikidataIds: string[];
 }
 
 const ARTICLES = new Set(['der', 'die', 'das', 'ein', 'eine', 'the', 'a', 'an', 'le', 'la', 'les', 'el']);
@@ -80,9 +82,11 @@ export function authorPeople(raw: string): string[][] {
     .replace(/^\s*(von|by|autor(in)?|author)\s*:?\s+/i, '');
   // Drop translators/editors and anything after them.
   s = s.split(/\b(übersetzt|ubersetzt|aus dem|translated|übersetzung|ubersetzung|übers\.|hrsg\.?|herausgegeben|mit einem nachwort|nachwort|vorwort|illustriert|illustrated|gelesen von|sprecher)\b/i)[0];
-  // "Nachname, Vorname" (exactly one comma, no other separators) → one person.
+  // "Nachname, Vorname" (exactly one comma, no other separators) → one person. Two full names on
+  // both sides ("Sally Rooney, Katia Benovich") are two people.
+  const words = s.split(',').map((p) => p.trim().split(/\s+/).length);
   const parts =
-    /^[^,;&/]+,[^,;&/]+$/.test(s) && !/\s(und|and)\s/i.test(s) && s.split(',')[1].trim().split(/\s+/).length <= 2
+    /^[^,;&/]+,[^,;&/]+$/.test(s) && !/\s(und|and)\s/i.test(s) && (words[0] === 1 || words[1] === 1)
       ? [s.split(',').reverse().join(' ')]
       : s.split(/[,;&/]|\s(?:und|and|u\.)\s/i);
   return parts
@@ -154,14 +158,34 @@ export function authorSimilarity(a: string, b: string): number {
   return best;
 }
 
-export function compareBooks(
-  a: { title: string; author: string },
-  b: { title: string; author: string }
-): MatchResult | null {
-  const t = titleSimilarity(a.title, b.title);
-  const au = authorSimilarity(a.author, b.author);
-  if (t >= 0.9 && au >= 0.85) return { level: 'block', reason: 'same_book' };
-  if ((t >= 0.8 && au >= 0.6) || t >= 0.95) return { level: 'warn', reason: 'similar' };
-  if (au >= 0.9) return { level: 'warn', reason: 'same_author' };
-  return null;
+interface TitledBook {
+  title: string;
+  author: string;
+}
+
+/** Same words in title and author, ignoring case, accents, punctuation and name order. */
+export function isExactlySameBook(a: TitledBook, b: TitledBook): boolean {
+  const people = (s: string) => authorPeople(s).map((p) => p.join(' ')).sort().join('|');
+  return fold(a.title) === fold(b.title) && people(a.author) === people(b.author);
+}
+
+export function isSimilarBook(a: TitledBook, b: TitledBook): boolean {
+  return titleSimilarity(a.title, b.title) >= 0.8 && authorSimilarity(a.author, b.author) >= 0.6;
+}
+
+/** Whether the catalogues say that two books by the same author are one work, e.g. a translation. */
+export function isSameWork(
+  a: TitledBook & { identity: BookIdentity | null },
+  b: TitledBook & { identity: BookIdentity | null }
+): boolean {
+  if (!a.identity || !b.identity || authorSimilarity(a.author, b.author) < 0.6) return false;
+  const shared = (x: string[], y: string[]) => x.some((v) => y.includes(v));
+  const matches = (titles: string[], other: string[]) =>
+    titles.some((t) => other.some((o) => titleSimilarity(t, o) >= 0.85));
+  return (
+    shared(a.identity.workKeys, b.identity.workKeys) ||
+    shared(a.identity.wikidataIds, b.identity.wikidataIds) ||
+    matches(a.identity.originalTitles, [b.title, ...b.identity.originalTitles]) ||
+    matches(b.identity.originalTitles, [a.title])
+  );
 }

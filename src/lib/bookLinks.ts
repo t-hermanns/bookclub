@@ -4,24 +4,14 @@
  * Pure functions, safe to use on client and server.
  */
 
-export type BookSource = 'thalia' | 'suhrkamp' | 'amazon' | 'storygraph';
-
 export interface NormalizedLink {
   /** Cleaned link to store and show. */
   link: string;
-  source: BookSource | null;
   /** Shop-specific identity of the book (e.g. "thalia:A1074248559"), null for other sites. */
   key: string | null;
   /** ISBN-13 if it can be read from the link itself. */
   isbn: string | null;
 }
-
-export const SUPPORTED_SOURCES: Record<BookSource, string> = {
-  thalia: 'Thalia',
-  suhrkamp: 'Suhrkamp',
-  amazon: 'Amazon',
-  storygraph: 'StoryGraph'
-};
 
 const TRACKING_PARAM = /^(utm_.*|gclid|gclsrc|gbraid|wbraid|dclid|gad_.*|fbclid|msclkid|mc_.*|_ga|_gl|provid|ref|ref_|refid|referrer|tag|linkcode|linkid|camp|creative|creativeasin|psc|th|smid|spia|sr|qid|keywords|crid|sprefix|dib|dib_tag|content-id|pd_rd_.*|pf_rd_.*|social_share|share|si|igshid|campaign|source|medium|affiliate.*|partner.*)$/i;
 
@@ -31,10 +21,6 @@ function hostIs(host: string, domain: string): boolean {
 
 function isAmazonHost(host: string): boolean {
   return /(^|\.)amazon\.[a-z.]{2,6}$/.test(host);
-}
-
-export function isAmazonShortHost(host: string): boolean {
-  return ['amzn.eu', 'amzn.to', 'a.co', 'amzn.de'].some((d) => hostIs(host, d));
 }
 
 /** ISBN-10 → ISBN-13 (978 prefix); null if not a valid ISBN-10. */
@@ -99,7 +85,6 @@ export function normalizeLink(raw: string): NormalizedLink | null {
       const tld = host.match(/thalia\.(de|at|ch)$/)?.[1] ?? 'de';
       return {
         link: `https://www.thalia.${tld}/shop/home/artikeldetails/${id}${id.startsWith('ID') ? '.html' : ''}`,
-        source: 'thalia',
         key: `thalia:${id}`,
         isbn: null
       };
@@ -113,7 +98,6 @@ export function normalizeLink(raw: string): NormalizedLink | null {
       const tld = host.replace(/^.*?amazon\./, '');
       return {
         link: `https://www.amazon.${tld}/dp/${asin}`,
-        source: 'amazon',
         key: `amazon:${asin}`,
         isbn: isbn10to13(asin)
       };
@@ -127,7 +111,7 @@ export function normalizeLink(raw: string): NormalizedLink | null {
     clean.hostname = 'www.suhrkamp.de';
     const isbn = normalizeIsbn(path.match(/-(\d{13}|\d{9}[\dX])\/?$/i)?.[1]);
     const slug = path.replace(/\/+$/, '').toLowerCase();
-    return { link: clean.toString(), source: 'suhrkamp', key: `suhrkamp:${slug}`, isbn };
+    return { link: clean.toString(), key: `suhrkamp:${slug}`, isbn };
   }
 
   if (hostIs(host, 'thestorygraph.com')) {
@@ -136,7 +120,6 @@ export function normalizeLink(raw: string): NormalizedLink | null {
       const id = m[1].toLowerCase();
       return {
         link: `https://app.thestorygraph.com/books/${id}`,
-        source: 'storygraph',
         key: `storygraph:${id}`,
         isbn: null
       };
@@ -145,7 +128,7 @@ export function normalizeLink(raw: string): NormalizedLink | null {
 
   stripTracking(u);
   const isbn = normalizeIsbn(path.match(/(?:^|[^\d])(97[89]\d{10})(?:[^\d]|$)/)?.[1]);
-  return { link: u.toString(), source: null, key: null, isbn };
+  return { link: u.toString(), key: null, isbn };
 }
 
 function decodeURIComponentSafe(s: string): string {

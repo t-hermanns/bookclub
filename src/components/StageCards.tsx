@@ -1,24 +1,45 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PublicBook, StateDTO } from '@/lib/state';
 import type { BallotEntry } from '@/lib/voting';
 import { Countdown } from './Countdown';
 
-interface DuplicateInfo {
-  level: 'block' | 'warn';
-  scope: 'current_round' | 'past_winner';
-  message: string;
+interface BookHit {
+  title: string;
+  author: string;
+  isbn: string | null;
+  workKey: string | null;
 }
 
-type LookupState =
+type SearchState =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'found' }
-  | { kind: 'partial' }
-  | { kind: 'unsupported' }
+  | { kind: 'results'; hits: BookHit[] }
   | { kind: 'error'; message: string };
 
-const SHOPS = 'Thalia, Suhrkamp, Amazon oder StoryGraph';
+interface PossibleDuplicate {
+  title: string;
+  author: string;
+  link: string;
+  origin: string;
+}
+
+type CheckResult =
+  | { kind: 'clear' }
+  | { kind: 'block'; message: string }
+  | { kind: 'possible'; matches: PossibleDuplicate[] }
+  | { kind: 'invalid'; message: string }
+  // The check itself failed: don't lock anyone out, the server checks again on saving.
+  | { kind: 'unavailable' };
+
+const SEARCH_DELAY_MS = 350;
+const CHECK_DELAY_MS = 500;
+
+function toCheckResult(duplicate: any): CheckResult {
+  if (duplicate?.level === 'block') return { kind: 'block', message: duplicate.message };
+  if (duplicate?.level === 'possible') return { kind: 'possible', matches: duplicate.matches };
+  return { kind: 'clear' };
+}
 
 export function SubmissionCard({
   state,
@@ -30,68 +51,104 @@ export function SubmissionCard({
   const [title, setTitle] = useState(state.ownBook?.title ?? '');
   const [author, setAuthor] = useState(state.ownBook?.author ?? '');
   const [link, setLink] = useState(state.ownBook?.link ?? '');
-  // 'link': paste a shop link, title/author are read from it. 'manual': type everything in.
-  const [mode, setMode] = useState<'link' | 'manual'>('link');
-  const [lookup, setLookup] = useState<LookupState>({ kind: 'idle' });
-  const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
+  // Identity of the picked search result; dropped as soon as title or author are edited by hand.
+  const [isbn, setIsbn] = useState<string | null>(null);
+  const [workKey, setWorkKey] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState<SearchState>({ kind: 'idle' });
+  const [manual, setManual] = useState(false);
+  // The result of the last check, valid only for exactly the input it was made for.
+  const [checked, setChecked] = useState<{ input: string; result: CheckResult } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const lookedUp = useRef<string | null>(state.ownBook?.link ?? null);
-  // The link the title/author were last read or saved for, to spot leftovers when the link changes.
-  const filled = useRef({
-    link: state.ownBook?.link ?? '',
-    title: state.ownBook?.title ?? '',
-    author: state.ownBook?.author ?? ''
-  });
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequest = useRef<AbortController | null>(null);
 
   const editable =
     state.status === 'suggestions_open' || state.status === 'suggestions_closed';
-  // In link mode the title/author fields appear once a link was read (or for an existing book).
-  const showFields = mode === 'manual' || !!state.ownBook || lookup.kind !== 'idle' || !!title || !!author;
-  const blocked = duplicate?.level === 'block';
+  // The fields appear once a book was picked, for an existing book, or to type one in by hand.
+  const showFields = manual || !!state.ownBook || !!title || !!author || !!link;
+  const complete = !!title.trim() && !!author.trim() && !!link.trim();
+  const checkInput = JSON.stringify({ title, author, link, isbn, workKey });
+  const check = complete && checked?.input === checkInput ? checked.result : null;
+  const checking = complete && !check;
+  const canSubmit = check?.kind === 'clear' || check?.kind === 'unavailable';
+
+  useEffect(() => {
+    if (!complete || !editable) return;
+    const request = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/books/check', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: checkInput,
+          signal: request.signal
+        });
+        const data = await res.json();
+        const result: CheckResult = res.ok
+          ? toCheckResult(data.duplicate)
+          : res.status === 400
+            ? { kind: 'invalid', message: data?.error ?? 'Ungültige Eingabe' }
+            : { kind: 'unavailable' };
+        setChecked({ input: checkInput, result });
+      } catch {
+        if (!request.signal.aborted) setChecked({ input: checkInput, result: { kind: 'unavailable' } });
+      }
+    }, CHECK_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      request.abort();
+    };
+  }, [checkInput, complete, editable]);
 
   function resetFeedback() {
-    setDuplicate(null);
     setError(null);
     setSavedAt(null);
   }
 
-  async function runLookup(raw: string) {
-    const value = raw.trim();
-    if (!value || value === lookedUp.current) return;
-    lookedUp.current = value;
-    resetFeedback();
-    setLookup({ kind: 'loading' });
+  function cancelSearch() {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchRequest.current?.abort();
+  }
+
+  async function runSearch(q: string) {
+    const request = new AbortController();
+    searchRequest.current = request;
     try {
-      const res = await fetch('/api/books/lookup', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ link: value })
-      });
+      const res = await fetch(`/api/books/search?q=${encodeURIComponent(q)}`, { signal: request.signal });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Link konnte nicht gelesen werden');
-      setLink(data.link);
-      lookedUp.current = data.link;
-      // A new link whose lookup found nothing must not keep the previous book's values; what the
-      // user typed in themselves stays.
-      const prev = filled.current;
-      const linkChanged = data.link !== prev.link;
-      setTitle((cur) => data.title ?? (linkChanged && cur === prev.title ? '' : cur));
-      setAuthor((cur) => data.author ?? (linkChanged && cur === prev.author ? '' : cur));
-      filled.current = {
-        link: data.link,
-        title: data.title ?? (linkChanged ? '' : prev.title),
-        author: data.author ?? (linkChanged ? '' : prev.author)
-      };
-      setDuplicate(data.duplicate ?? null);
-      setLookup(
-        !data.supported ? { kind: 'unsupported' } : data.found ? { kind: 'found' } : { kind: 'partial' }
-      );
+      if (!res.ok) throw new Error(data?.error ?? 'Suche fehlgeschlagen');
+      setSearch({ kind: 'results', hits: data.hits });
     } catch (e: any) {
-      lookedUp.current = null;
-      setLookup({ kind: 'error', message: e.message });
+      if (!request.signal.aborted) setSearch({ kind: 'error', message: e.message });
     }
+  }
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    cancelSearch();
+    const q = value.trim();
+    if (q.length < 2) {
+      setSearch({ kind: 'idle' });
+      return;
+    }
+    setSearch({ kind: 'loading' });
+    searchTimer.current = setTimeout(() => void runSearch(q), SEARCH_DELAY_MS);
+  }
+
+  function pick(hit: BookHit) {
+    cancelSearch();
+    setTitle(hit.title);
+    setAuthor(hit.author);
+    setIsbn(hit.isbn);
+    setWorkKey(hit.workKey);
+    // The link is always pasted by hand; one from a previously picked book must not stay.
+    setLink('');
+    setQuery('');
+    setSearch({ kind: 'idle' });
+    resetFeedback();
   }
 
   async function save(confirmDuplicate = false) {
@@ -101,17 +158,16 @@ export function SubmissionCard({
       const res = await fetch('/api/books', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, author, link, confirmDuplicate })
+        body: JSON.stringify({ title, author, link, isbn, workKey, confirmDuplicate })
       });
       const data = await res.json();
       if (res.status === 409 && data?.duplicate) {
-        setDuplicate(data.duplicate);
+        // Someone else submitted the same book since the last check.
+        setChecked({ input: checkInput, result: toCheckResult(data.duplicate) });
         return;
       }
       if (!res.ok) throw new Error(data?.error ?? 'Speichern fehlgeschlagen');
       if (data.link) setLink(data.link);
-      filled.current = { link: data.link ?? link, title, author };
-      setDuplicate(null);
       setSavedAt(Date.now());
       refresh();
     } catch (e: any) {
@@ -138,73 +194,48 @@ export function SubmissionCard({
         </div>
       )}
       <div className="space-y-3">
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            Link{mode === 'link' && <span className="font-normal text-slate-500"> ({SHOPS})</span>}
-          </label>
-          <div className="flex gap-2">
+        {editable && (
+          <div>
+            <label className="mb-1 block text-sm font-medium">Buch suchen (am besten deutsche Version)</label>
             <input
               className="input"
-              type="url"
-              inputMode="url"
-              placeholder={mode === 'link' ? 'Link zum Buch einfügen …' : 'https://…'}
-              value={link}
-              disabled={!editable}
-              onChange={(e) => {
-                setLink(e.target.value);
-                resetFeedback();
-              }}
-              onPaste={(e) => {
-                if (mode !== 'link') return;
-                const pasted = e.clipboardData.getData('text');
-                if (pasted) {
-                  e.preventDefault();
-                  setLink(pasted.trim());
-                  void runLookup(pasted);
-                }
-              }}
-              onBlur={() => {
-                if (mode === 'link') void runLookup(link);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && mode === 'link') {
-                  e.preventDefault();
-                  lookedUp.current = null;
-                  void runLookup(link);
-                }
-              }}
+              type="search"
+              placeholder="Titel oder Autor:in …"
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
             />
-            {mode === 'link' && editable && (
-              <button
-                type="button"
-                className="btn-secondary shrink-0"
-                disabled={!link.trim() || lookup.kind === 'loading'}
-                onClick={() => {
-                  lookedUp.current = null;
-                  void runLookup(link);
-                }}
-              >
-                {lookup.kind === 'loading' ? 'Lese …' : 'Übernehmen'}
+            {search.kind === 'loading' && <p className="mt-1 text-sm text-slate-500">Suche …</p>}
+            {search.kind === 'error' && (
+              <p className="mt-1 text-sm text-rose-700 dark:text-rose-400">{search.message}</p>
+            )}
+            {search.kind === 'results' && search.hits.length === 0 && (
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                Nichts gefunden – versuch eine andere Schreibweise oder trag das Buch manuell ein.
+              </p>
+            )}
+            {search.kind === 'results' && search.hits.length > 0 && (
+              <ul className="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-white/10 dark:border-white/10">
+                {search.hits.map((hit) => (
+                  <li key={`${hit.title}|${hit.author}`}>
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-white/5"
+                      onClick={() => pick(hit)}
+                    >
+                      <span className="block font-medium">{hit.title}</span>
+                      <span className="block text-sm text-slate-500">{hit.author}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!showFields && (
+              <button type="button" className="btn-secondary mt-2" onClick={() => setManual(true)}>
+                Manuell eintragen
               </button>
             )}
           </div>
-          {mode === 'link' && lookup.kind === 'found' && (
-            <p className="mt-1 text-sm text-slate-500">Titel und Autor:in übernommen – bitte kurz prüfen.</p>
-          )}
-          {mode === 'link' && lookup.kind === 'partial' && (
-            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-              Konnte Titel/Autor:in nicht (vollständig) automatisch lesen – bitte ergänzen.
-            </p>
-          )}
-          {mode === 'link' && lookup.kind === 'unsupported' && (
-            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-              Diese Seite wird nicht automatisch erkannt – bitte Titel und Autor:in selbst eintragen.
-            </p>
-          )}
-          {lookup.kind === 'error' && (
-            <p className="mt-1 text-sm text-rose-700 dark:text-rose-400">{lookup.message}</p>
-          )}
-        </div>
+        )}
         {showFields && (
           <>
             <div>
@@ -215,6 +246,8 @@ export function SubmissionCard({
                 disabled={!editable}
                 onChange={(e) => {
                   setTitle(e.target.value);
+                  setIsbn(null);
+                  setWorkKey(null);
                   resetFeedback();
                 }}
               />
@@ -227,42 +260,60 @@ export function SubmissionCard({
                 disabled={!editable}
                 onChange={(e) => {
                   setAuthor(e.target.value);
+                  setIsbn(null);
+                  setWorkKey(null);
+                  resetFeedback();
+                }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Link (am besten Thalia)</label>
+              <input
+                className="input"
+                type="url"
+                inputMode="url"
+                placeholder="https://www.thalia.de/…"
+                value={link}
+                disabled={!editable}
+                onChange={(e) => {
+                  setLink(e.target.value);
                   resetFeedback();
                 }}
               />
             </div>
           </>
         )}
-        {duplicate && (
-          <div className={blocked ? 'banner-warn' : 'banner-info'}>
-            <div>{duplicate.message}</div>
-            {!blocked && editable && (
-              <button className="btn-secondary mt-2" disabled={busy || !title || !author || !link} onClick={() => save(true)}>
-                Ist ein anderes Buch – trotzdem einreichen
-              </button>
-            )}
+        {editable && checking && <p className="text-sm text-slate-500">Prüfe …</p>}
+        {check?.kind === 'invalid' && <div className="banner-warn">{check.message}</div>}
+        {check?.kind === 'block' && <div className="banner-warn">{check.message}</div>}
+        {check?.kind === 'possible' && editable && (
+          <div className="banner-info space-y-2">
+            <div>Dieses Buch könnte schon dabei sein. Ist es dasselbe?</div>
+            <ul className="space-y-2">
+              {check.matches.map((match) => (
+                <li key={match.link}>
+                  <span className="block font-medium">{match.title}</span>
+                  <span className="block text-sm">
+                    {match.author} · {match.origin}
+                  </span>
+                  <a className="block break-words text-sm text-brand-600 hover:underline" href={match.link} target="_blank" rel="noreferrer">
+                    {match.link}
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <button className="btn-secondary" disabled={busy} onClick={() => save(true)}>
+              Ist ein anderes Buch – trotzdem einreichen
+            </button>
           </div>
         )}
         {error && <div className="banner-warn">{error}</div>}
-        {editable && (
+        {editable && showFields && (
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="btn-primary"
-              onClick={() => save(false)}
-              disabled={busy || blocked || !!duplicate || lookup.kind === 'loading' || !title || !author || !link}
-            >
+            <button className="btn-primary" onClick={() => save(false)} disabled={busy || !canSubmit}>
               {state.ownBook ? 'Aktualisieren' : 'Einreichen'}
             </button>
             {savedAt && <span className="text-sm text-slate-500">Gespeichert ✓</span>}
-            {mode === 'link' ? (
-              <button type="button" className="btn-ghost text-sm" onClick={() => setMode('manual')}>
-                Buch gibt es bei keiner dieser Seiten? Manuell eintragen
-              </button>
-            ) : (
-              <button type="button" className="btn-ghost text-sm" onClick={() => setMode('link')}>
-                Zurück zum Link-Einfügen
-              </button>
-            )}
           </div>
         )}
       </div>
