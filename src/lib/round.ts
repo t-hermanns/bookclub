@@ -31,6 +31,9 @@ export interface Book {
   author: string;
   link: string;
   submitter_name: string;
+  isbn: string | null;
+  /** JSON-encoded BookIdentity (see bookMatch.ts), null until looked up. */
+  identity: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -57,6 +57,9 @@ body {
   .dark .input {
     @apply border-slate-700 bg-slate-800/70 text-slate-100 placeholder:text-slate-500;
   }
+  .input:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
 
   .banner-info {
     @apply rounded-xl border border-blue-200/80 bg-blue-50/90 p-3 text-sm text-blue-900 shadow-sm;
