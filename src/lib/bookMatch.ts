@@ -134,9 +134,12 @@ function personSimilarity(a: string[], b: string[]): number {
   const full = ratio(a.join(' '), b.join(' '));
   // Same last name + matching initial (e.g. "J. Hermann" vs "Judith Hermann").
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-  const covered = short.every((t) =>
-    long.some((u) => ratio(t, u) >= 0.85 || (t.length === 1 && u.startsWith(t)) || (u.length === 1 && t.startsWith(u)))
-  );
+  // Initials alone prove nothing ("b" would match "Bertolt Brecht"), so a full name part must match.
+  const covered =
+    short.some((t) => t.length > 1) &&
+    short.every((t) =>
+      long.some((u) => ratio(t, u) >= 0.85 || (t.length === 1 && u.startsWith(t)) || (u.length === 1 && t.startsWith(u)))
+    );
   const longest = (xs: string[]) => xs.reduce((m, x) => (x.length > m.length ? x : m), '');
   const surname = ratio(longest(a), longest(b));
   return Math.max(full, covered && short.length > 0 ? 0.95 : 0, surname >= 0.85 && covered ? 0.95 : 0);

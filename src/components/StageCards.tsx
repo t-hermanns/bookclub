@@ -38,6 +38,12 @@ export function SubmissionCard({
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const lookedUp = useRef<string | null>(state.ownBook?.link ?? null);
+  // The link the title/author were last read or saved for, to spot leftovers when the link changes.
+  const filled = useRef({
+    link: state.ownBook?.link ?? '',
+    title: state.ownBook?.title ?? '',
+    author: state.ownBook?.author ?? ''
+  });
 
   const editable =
     state.status === 'suggestions_open' || state.status === 'suggestions_closed';
@@ -67,8 +73,17 @@ export function SubmissionCard({
       if (!res.ok) throw new Error(data?.error ?? 'Link konnte nicht gelesen werden');
       setLink(data.link);
       lookedUp.current = data.link;
-      if (data.title) setTitle(data.title);
-      if (data.author) setAuthor(data.author);
+      // A new link whose lookup found nothing must not keep the previous book's values; what the
+      // user typed in themselves stays.
+      const prev = filled.current;
+      const linkChanged = data.link !== prev.link;
+      setTitle((cur) => data.title ?? (linkChanged && cur === prev.title ? '' : cur));
+      setAuthor((cur) => data.author ?? (linkChanged && cur === prev.author ? '' : cur));
+      filled.current = {
+        link: data.link,
+        title: data.title ?? (linkChanged ? '' : prev.title),
+        author: data.author ?? (linkChanged ? '' : prev.author)
+      };
       setDuplicate(data.duplicate ?? null);
       setLookup(
         !data.supported ? { kind: 'unsupported' } : data.found ? { kind: 'found' } : { kind: 'partial' }
@@ -95,6 +110,7 @@ export function SubmissionCard({
       }
       if (!res.ok) throw new Error(data?.error ?? 'Speichern fehlgeschlagen');
       if (data.link) setLink(data.link);
+      filled.current = { link: data.link ?? link, title, author };
       setDuplicate(null);
       setSavedAt(Date.now());
       refresh();
