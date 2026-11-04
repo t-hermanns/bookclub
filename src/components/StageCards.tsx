@@ -56,7 +56,8 @@ export function SubmissionCard({
   const [workKey, setWorkKey] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState<SearchState>({ kind: 'idle' });
-  const [manual, setManual] = useState(false);
+  // 'search': title and author only come from a search result. 'manual': everything is typed in.
+  const [mode, setMode] = useState<'search' | 'manual'>('search');
   // The result of the last check, valid only for exactly the input it was made for.
   const [checked, setChecked] = useState<{ input: string; result: CheckResult } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,7 +69,7 @@ export function SubmissionCard({
   const editable =
     state.status === 'suggestions_open' || state.status === 'suggestions_closed';
   // The fields appear once a book was picked, for an existing book, or to type one in by hand.
-  const showFields = manual || !!state.ownBook || !!title || !!author || !!link;
+  const showFields = mode === 'manual' || !!title || !!author;
   const complete = !!title.trim() && !!author.trim() && !!link.trim();
   const checkInput = JSON.stringify({ title, author, link, isbn, workKey });
   const check = complete && checked?.input === checkInput ? checked.result : null;
@@ -151,6 +152,31 @@ export function SubmissionCard({
     resetFeedback();
   }
 
+  function clearSearch() {
+    cancelSearch();
+    setQuery('');
+    setSearch({ kind: 'idle' });
+  }
+
+  // Keeps a picked book, so that a catalogue's awkward title can be corrected by hand.
+  function switchToManual() {
+    clearSearch();
+    setMode('manual');
+    resetFeedback();
+  }
+
+  // Empties the form, because typed-in values can't be edited in search mode. A submitted book
+  // only changes on saving.
+  function switchToSearch() {
+    setTitle('');
+    setAuthor('');
+    setLink('');
+    setIsbn(null);
+    setWorkKey(null);
+    setMode('search');
+    resetFeedback();
+  }
+
   async function save(confirmDuplicate = false) {
     setBusy(true);
     setError(null);
@@ -179,13 +205,24 @@ export function SubmissionCard({
 
   return (
     <div className="card space-y-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-        <h2 className="text-lg font-semibold">Dein Buchvorschlag</h2>
-        <span className="text-sm text-slate-500">
-          {state.suggestionsDeadline && state.status === 'suggestions_open' && (
-            <Countdown deadline={state.suggestionsDeadline} />
-          )}
-        </span>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="whitespace-nowrap text-base font-semibold sm:text-lg">Dein Buchvorschlag</h2>
+          <span className="text-sm text-slate-500">
+            {state.suggestionsDeadline && state.status === 'suggestions_open' && (
+              <Countdown deadline={state.suggestionsDeadline} />
+            )}
+          </span>
+        </div>
+        {editable && (
+          <button
+            type="button"
+            className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+            onClick={mode === 'search' ? switchToManual : switchToSearch}
+          >
+            {mode === 'search' ? 'Manuell eintragen' : 'Zur Suche'}
+          </button>
+        )}
       </div>
       {state.status === 'suggestions_closed' && (
         <div className="banner-info">
@@ -194,7 +231,7 @@ export function SubmissionCard({
         </div>
       )}
       <div className="space-y-3">
-        {editable && (
+        {editable && mode === 'search' && (
           <div>
             <label className="mb-1 block text-sm font-medium">Buch suchen (am besten deutsche Version)</label>
             <input
@@ -229,11 +266,6 @@ export function SubmissionCard({
                 ))}
               </ul>
             )}
-            {!showFields && (
-              <button type="button" className="btn-secondary mt-2" onClick={() => setManual(true)}>
-                Manuell eintragen
-              </button>
-            )}
           </div>
         )}
         {showFields && (
@@ -243,7 +275,7 @@ export function SubmissionCard({
               <input
                 className="input"
                 value={title}
-                disabled={!editable}
+                disabled={!editable || mode === 'search'}
                 onChange={(e) => {
                   setTitle(e.target.value);
                   setIsbn(null);
@@ -257,7 +289,7 @@ export function SubmissionCard({
               <input
                 className="input"
                 value={author}
-                disabled={!editable}
+                disabled={!editable || mode === 'search'}
                 onChange={(e) => {
                   setAuthor(e.target.value);
                   setIsbn(null);
