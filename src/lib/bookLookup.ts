@@ -184,6 +184,30 @@ function splitPageTitle(raw: string): { title: string | null; author: string | n
   return { title: clean(s), author: null };
 }
 
+/**
+ * Amazon has no JSON-LD and its <title> mixes in contributors and ISBN, so read the product block:
+ * #productTitle without marketing suffixes, and the byline's people, preferring those marked as
+ * authors over translators and afterword writers.
+ */
+function amazonFields(html: string): { title: string | null; author: string | null } {
+  const rawTitle = clean(html.match(/id=["']productTitle["'][^>]*>([^<]+)</i)?.[1]);
+  const title = rawTitle ? clean(rawTitle.split(/\s\|\s|:\s/)[0]) : null;
+
+  const start = html.search(/id=["']bylineInfo["']/i);
+  if (start < 0) return { title, author: null };
+  const people = html
+    .slice(start, start + 10_000)
+    .split(/<span[^>]+class=["']author\b/i)
+    .slice(1)
+    .map((part) => ({
+      name: clean(part.match(/<a[^>]*>([^<]+)<\/a>/i)?.[1]),
+      role: clean(part.match(/class=["']contribution["'][\s\S]*?<span[^>]*>([^<]*)</i)?.[1]) ?? ''
+    }))
+    .filter((p): p is { name: string; role: string } => !!p.name);
+  const authors = people.filter((p) => /autor|author/i.test(p.role));
+  return { title, author: personNames((authors.length ? authors : people).map((p) => p.name)) };
+}
+
 export function parseBookPage(html: string): LookupResult {
   let title: string | null = null;
   let author: string | null = null;
@@ -202,6 +226,10 @@ export function parseBookPage(html: string): LookupResult {
     }
   }
 
+  const amazon = amazonFields(html);
+  title = title ?? amazon.title;
+  author = author ?? amazon.author;
+
   const pageTitle = meta(html, 'og:title') ?? clean(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]);
   if (pageTitle && (!title || !author)) {
     const split = splitPageTitle(pageTitle);
@@ -212,7 +240,8 @@ export function parseBookPage(html: string): LookupResult {
     author ??
     meta(html, 'book:author') ??
     meta(html, 'author') ??
-    clean(html.match(/<span[^>]+class=["'][^"']*author[^"']*["'][^>]*>\s*(?:<a[^>]*>)?([^<]{2,120})</i)?.[1]);
+    // A whole "author" class only: widgets like "_follow-the-author-card" hold UI text, not names.
+    clean(html.match(/<span[^>]+class=["'](?:[^"']*\s)?author(?:\s[^"']*)?["'][^>]*>\s*(?:<a[^>]*>)?([^<]{2,120})</i)?.[1]);
   if (author && /^https?:\/\//.test(author)) author = null;
   isbn =
     isbn ??
